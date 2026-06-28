@@ -16,6 +16,24 @@ type Room = {
   guest: RoomUser | null;
 };
 
+type CreatedTrack = {
+  position: number;
+  id: string;
+  name: string;
+  artists: string;
+  album: string | null;
+  uri: string;
+  source: "host" | "guest";
+  score: number;
+  ownSimilarity: number;
+  otherSimilarity: number;
+  rankScore: number;
+};
+
+function formatNumber(value: number) {
+  return Number.isFinite(value) ? value.toFixed(3) : "-";
+}
+
 export default function RoomPage() {
   const params = useParams();
   const roomId = params.roomId as string;
@@ -25,6 +43,11 @@ export default function RoomPage() {
   const [room, setRoom] = useState<Room | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
+
+  // 逆Blend作成後に、Webアプリ側でスコア確認するためのstate
+  const [createdTracks, setCreatedTracks] = useState<CreatedTrack[]>([]);
+  const [createdPlaylistUrl, setCreatedPlaylistUrl] = useState("");
+  const [createdPlaylistName, setCreatedPlaylistName] = useState("");
 
   useEffect(() => {
     setInviteUrl(window.location.href);
@@ -67,6 +90,11 @@ export default function RoomPage() {
       setCreatingPlaylist(true);
       setErrorMessage("");
 
+      // 前回作成結果が残っていると紛らわしいので、作成前に一度クリアする
+      setCreatedTracks([]);
+      setCreatedPlaylistUrl("");
+      setCreatedPlaylistName("");
+
       const response = await fetch(
         `/api/rooms/${roomId}/create-reverse-playlist`,
         {
@@ -80,7 +108,14 @@ export default function RoomPage() {
         throw new Error(data.error ?? "逆Blendプレイリストの作成に失敗しました。");
       }
 
-      window.open(data.playlist.spotifyUrl, "_blank");
+      // APIから返ってきたデバッグ用スコアを画面側に保存する
+      setCreatedTracks(data.tracks ?? []);
+      setCreatedPlaylistUrl(data.playlist?.spotifyUrl ?? "");
+      setCreatedPlaylistName(data.playlist?.name ?? "");
+
+      if (data.playlist?.spotifyUrl) {
+        window.open(data.playlist.spotifyUrl, "_blank");
+      }
     } catch (error) {
       if (error instanceof Error) {
         setErrorMessage(error.message);
@@ -90,6 +125,26 @@ export default function RoomPage() {
     } finally {
       setCreatingPlaylist(false);
     }
+  }
+
+  function getSourceLabel(source: "host" | "guest") {
+    if (source === "host") {
+      return `${room?.host?.display_name ?? "ホスト"}由来`;
+    }
+
+    return `${room?.guest?.display_name ?? "ゲスト"}由来`;
+  }
+
+    function getHostSimilarity(track: CreatedTrack) {
+    return track.source === "host"
+      ? track.ownSimilarity
+      : track.otherSimilarity;
+  }
+
+  function getGuestSimilarity(track: CreatedTrack) {
+    return track.source === "guest"
+      ? track.ownSimilarity
+      : track.otherSimilarity;
   }
 
   return (
@@ -182,6 +237,95 @@ export default function RoomPage() {
             </p>
           )}
         </div>
+
+        {createdTracks.length > 0 && (
+          <div className="mt-8 rounded-2xl bg-zinc-900 p-6">
+            <div className="mb-5">
+              <h2 className="mb-2 text-xl font-bold">作成結果</h2>
+
+              {createdPlaylistName && (
+                <p className="text-zinc-300">{createdPlaylistName}</p>
+              )}
+
+              {createdPlaylistUrl && (
+                <a
+                  href={createdPlaylistUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block text-green-400 underline"
+                >
+                  Spotifyで開く
+                </a>
+              )}
+            </div>
+
+            <div className="mb-5 rounded-xl bg-zinc-800 p-4 text-sm text-zinc-300">
+              <p className="mb-1">
+                <span className="font-bold">Score：</span>
+                逆Blendスコア。高いほど採用されやすい曲です。
+              </p>
+              <p className="mb-1">
+                <span className="font-bold">
+                  {room?.host?.display_name ?? "ホスト"} /{" "}
+                  {room?.guest?.display_name ?? "ゲスト"}：
+                </span>
+                それぞれの好みにどれくらい近いかを表します。
+              </p>
+              <p>
+                逆Blendでは、由来側ユーザーの値が高く、相手側ユーザーの値が低い曲ほど狙いに近いです。
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {createdTracks.map((track) => (
+                <div
+                  key={`${track.position}-${track.id}`}
+                  className="rounded-xl bg-zinc-800 p-4"
+                >
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-bold">
+                        {track.position}. {track.name}
+                      </p>
+                      <p className="text-sm text-zinc-400">{track.artists}</p>
+
+                      {track.album && (
+                        <p className="mt-1 text-xs text-zinc-500">
+                          Album: {track.album}
+                        </p>
+                      )}
+                    </div>
+
+                    <span className="w-fit rounded-full bg-zinc-700 px-3 py-1 text-xs text-zinc-200">
+                      {getSourceLabel(track.source)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                    <div className="rounded-lg bg-zinc-900 p-3">
+                      <p className="text-xs text-zinc-500">Score</p>
+                      <p className="font-mono">{formatNumber(track.score)}</p>
+                    </div>
+
+                    <div className="rounded-lg bg-zinc-900 p-3">
+                      <p className="text-xs text-zinc-500">
+                        {room?.host?.display_name ?? "ホスト"}との近さ
+                      </p>
+                      <p className="font-mono">{formatNumber(getHostSimilarity(track))}</p>
+                    </div>
+
+                    <div className="rounded-lg bg-zinc-900 p-3">
+                      <p className="text-xs text-zinc-500">
+                        {room?.guest?.display_name ?? "ゲスト"}との近さ
+                      </p>
+                      <p className="font-mono">{formatNumber(getGuestSimilarity(track))}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-8">
           <a href="/dashboard" className="text-green-400 underline">

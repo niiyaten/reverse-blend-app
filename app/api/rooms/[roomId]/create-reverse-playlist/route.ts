@@ -24,7 +24,7 @@ type SpotifyTrack = {
   name: string;
   uri: string;
   artists: SpotifyArtist[];
-  album: SpotifyAlbum;
+  album?: SpotifyAlbum | null;
 };
 
 type SpotifyTopTracksResponse = {
@@ -46,16 +46,21 @@ type SpotifyPlaylistResponse = {
 type ScoredTrack = {
   track: SpotifyTrack;
   score: number;
+  ownSimilarity: number;
+  otherSimilarity: number;
+  rankScore: number;
 };
 
-// 1人15曲ずつ
-const MAX_TRACKS_PER_USER = 15;
+const TRACKS_PER_USER = 15;
 
-// 1人由来の10曲内で、同じアーティストは最大2曲まで
+// 1人由来の15曲内で、同じアーティストに偏りすぎないようにする
 const MAX_TRACKS_PER_ARTIST = 2;
 
-// 1人由来の10曲内で、同じアルバムは基本1曲まで
+// 1人由来の15曲内で、同じアルバムに偏りすぎないようにする
 const MAX_TRACKS_PER_ALBUM = 1;
+
+// すでに選んだ曲と似ている曲をどれくらい避けるか
+const MMR_DIVERSITY_WEIGHT = 45;
 
 async function fetchJson<T>(url: string, accessToken: string): Promise<T> {
   const response = await fetch(url, {
@@ -72,9 +77,10 @@ async function fetchJson<T>(url: string, accessToken: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+// Top Tracksが空のときに、最近再生した曲を代替として使う
 async function getRecentlyPlayedTracks(accessToken: string) {
   const data = await fetchJson<{
-    items: { track: SpotifyTrack }[];
+    items: { track: SpotifyTrack | null }[];
   }>(
     "https://api.spotify.com/v1/me/player/recently-played?limit=50",
     accessToken
@@ -82,14 +88,15 @@ async function getRecentlyPlayedTracks(accessToken: string) {
 
   const tracks = data.items
     .map((item) => item.track)
-    .filter((track) => track !== null);
+    .filter((track): track is SpotifyTrack => track !== null);
 
   return uniqueTracks(tracks);
 }
 
+// 基本はlong_termのTop Tracksを使い、空ならRecently Playedにfallbackする
 async function getTopTracksOrRecentTracks(accessToken: string) {
   const data = await fetchJson<SpotifyTopTracksResponse>(
-    "https://api.spotify.com/v1/me/top/tracks?limit=30&time_range=long_term",
+    "https://api.spotify.com/v1/me/top/tracks?limit=50&time_range=long_term",
     accessToken
   );
 
@@ -100,18 +107,24 @@ async function getTopTracksOrRecentTracks(accessToken: string) {
   return getRecentlyPlayedTracks(accessToken);
 }
 
+// long_termのTop Artistsを取得する
 async function getTopArtists(accessToken: string) {
   const data = await fetchJson<SpotifyTopArtistsResponse>(
-    "https://api.spotify.com/v1/me/top/artists?limit=30&time_range=long_term",
+    "https://api.spotify.com/v1/me/top/artists?limit=50&time_range=long_term",
     accessToken
   );
 
   return data.items;
 }
 
+// 曲に含まれるアーティストIDから、ジャンル情報付きの詳細を取得する
 async function getArtistDetails(accessToken: string, artistIds: string[]) {
   const uniqueArtistIds = [...new Set(artistIds)].filter(Boolean);
   const artistMap = new Map<string, SpotifyArtist>();
+
+  if (uniqueArtistIds.length === 0) {
+    return artistMap;
+  }
 
   for (let i = 0; i < uniqueArtistIds.length; i += 50) {
     const chunk = uniqueArtistIds.slice(i, i + 50);
@@ -129,6 +142,7 @@ async function getArtistDetails(accessToken: string, artistIds: string[]) {
   return artistMap;
 }
 
+// 同じ曲IDの重複を除去する
 function uniqueTracks(tracks: SpotifyTrack[]) {
   const result: SpotifyTrack[] = [];
   const seenIds = new Set<string>();
@@ -147,34 +161,6 @@ function getArtistIdsFromTracks(tracks: SpotifyTrack[]) {
   return tracks.flatMap((track) => track.artists.map((artist) => artist.id));
 }
 
-function getGenreSetFromArtists(artists: SpotifyArtist[]) {
-  return new Set(
-    artists.flatMap((artist) =>
-      (artist.genres ?? []).map((genre) => genre.toLowerCase())
-    )
-  );
-}
-
-function getArtistNameSet(artists: SpotifyArtist[]) {
-  return new Set(artists.map((artist) => artist.name.toLowerCase()));
-}
-
-function getTrackGenres(
-  track: SpotifyTrack,
-  artistDetailMap: Map<string, SpotifyArtist>
-) {
-  const genres = track.artists.flatMap((artist) => {
-    const detail = artistDetailMap.get(artist.id);
-    return detail?.genres ?? [];
-  });
-
-  return [...new Set(genres.map((genre) => genre.toLowerCase()))];
-}
-
-function countGenreOverlap(trackGenres: string[], otherGenreSet: Set<string>) {
-  return trackGenres.filter((genre) => otherGenreSet.has(genre)).length;
-}
-
 function getPrimaryArtistId(track: SpotifyTrack) {
   return track.artists[0]?.id ?? "unknown-artist";
 }
@@ -183,92 +169,116 @@ function getAlbumId(track: SpotifyTrack) {
   return track.album?.id ?? "unknown-album";
 }
 
-function selectWithDiversity(scoredTracks: ScoredTrack[], limit: number) {
-  const selected: ScoredTrack[] = [];
-  const artistCounts = new Map<string, number>();
-  const albumCounts = new Map<string, number>();
-  const selectedTrackIds = new Set<string>();
-
-  // 1周目：アーティスト数・アルバム数の制約を守って選ぶ
-  for (const item of scoredTracks) {
-    const track = item.track;
-    const artistId = getPrimaryArtistId(track);
-    const albumId = getAlbumId(track);
-
-    const artistCount = artistCounts.get(artistId) ?? 0;
-    const albumCount = albumCounts.get(albumId) ?? 0;
-
-    if (selectedTrackIds.has(track.id)) {
-      continue;
-    }
-
-    if (artistCount >= MAX_TRACKS_PER_ARTIST) {
-      continue;
-    }
-
-    if (albumCount >= MAX_TRACKS_PER_ALBUM) {
-      continue;
-    }
-
-    selected.push(item);
-    selectedTrackIds.add(track.id);
-    artistCounts.set(artistId, artistCount + 1);
-    albumCounts.set(albumId, albumCount + 1);
-
-    if (selected.length >= limit) {
-      return selected;
-    }
-  }
-
-  // 2周目：曲が足りない場合は、アルバム制約だけ緩める
-  for (const item of scoredTracks) {
-    const track = item.track;
-    const artistId = getPrimaryArtistId(track);
-    const artistCount = artistCounts.get(artistId) ?? 0;
-
-    if (selectedTrackIds.has(track.id)) {
-      continue;
-    }
-
-    if (artistCount >= MAX_TRACKS_PER_ARTIST) {
-      continue;
-    }
-
-    selected.push(item);
-    selectedTrackIds.add(track.id);
-    artistCounts.set(artistId, artistCount + 1);
-
-    if (selected.length >= limit) {
-      return selected;
-    }
-  }
-
-  // 3周目：それでも足りない場合は、スコア順に補充する
-  for (const item of scoredTracks) {
-    const track = item.track;
-
-    if (selectedTrackIds.has(track.id)) {
-      continue;
-    }
-
-    selected.push(item);
-    selectedTrackIds.add(track.id);
-
-    if (selected.length >= limit) {
-      return selected;
-    }
-  }
-
-  return selected;
+function addToVector(vector: Map<string, number>, key: string, value: number) {
+  vector.set(key, (vector.get(key) ?? 0) + value);
 }
 
-function selectFarTracks(params: {
+// ユーザーの好みを「artist:xxx」「genre:xxx」のベクトルに変換する
+function buildUserPreferenceVector(params: {
+  topArtists: SpotifyArtist[];
+  tracks: SpotifyTrack[];
+  trackArtistDetailMap: Map<string, SpotifyArtist>;
+}) {
+  const { topArtists, tracks, trackArtistDetailMap } = params;
+  const vector = new Map<string, number>();
+
+  // Top Artistsは、その人の好みの中心として強めに入れる
+  topArtists.forEach((artist, index) => {
+    const rankWeight = 1 - index / Math.max(topArtists.length, 1);
+
+    addToVector(vector, `artist:${artist.id}`, 4.0 * rankWeight);
+
+    for (const genre of artist.genres ?? []) {
+      addToVector(vector, `genre:${genre.toLowerCase()}`, 2.5 * rankWeight);
+    }
+  });
+
+  // Top Tracks / Recently Playedに出てくるアーティストも好みとして入れる
+  tracks.forEach((track, index) => {
+    const rankWeight = 1 - index / Math.max(tracks.length, 1);
+
+    for (const artist of track.artists) {
+      const detail = trackArtistDetailMap.get(artist.id);
+
+      addToVector(vector, `artist:${artist.id}`, 2.0 * rankWeight);
+
+      for (const genre of detail?.genres ?? []) {
+        addToVector(vector, `genre:${genre.toLowerCase()}`, 1.2 * rankWeight);
+      }
+    }
+  });
+
+  return vector;
+}
+
+// 候補曲を「artist:xxx」「genre:xxx」のベクトルに変換する
+function buildTrackVector(
+  track: SpotifyTrack,
+  artistDetailMap: Map<string, SpotifyArtist>
+) {
+  const vector = new Map<string, number>();
+
+  for (const artist of track.artists) {
+    const detail = artistDetailMap.get(artist.id);
+
+    addToVector(vector, `artist:${artist.id}`, 4.0);
+
+    for (const genre of detail?.genres ?? []) {
+      addToVector(vector, `genre:${genre.toLowerCase()}`, 2.0);
+    }
+  }
+
+  return vector;
+}
+
+// 2つのベクトルの近さをcosine similarityで計算する
+function cosineSimilarity(
+  vectorA: Map<string, number>,
+  vectorB: Map<string, number>
+) {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (const value of vectorA.values()) {
+    normA += value * value;
+  }
+
+  for (const value of vectorB.values()) {
+    normB += value * value;
+  }
+
+  for (const [key, valueA] of vectorA.entries()) {
+    const valueB = vectorB.get(key) ?? 0;
+    dot += valueA * valueB;
+  }
+
+  if (normA === 0 || normB === 0) {
+    return 0;
+  }
+
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+function getArtistIdSetFromTracksAndArtists(
+  tracks: SpotifyTrack[],
+  artists: SpotifyArtist[]
+) {
+  return new Set([
+    ...getArtistIdsFromTracks(tracks),
+    ...artists.map((artist) => artist.id),
+  ]);
+}
+
+// 自分には近く、相手からは遠い曲ほど高スコアにする
+function scoreTracks(params: {
   ownTracks: SpotifyTrack[];
   otherTracks: SpotifyTrack[];
   ownTopArtists: SpotifyArtist[];
   otherTopArtists: SpotifyArtist[];
   ownArtistDetailMap: Map<string, SpotifyArtist>;
-  limit: number;
+  ownPreferenceVector: Map<string, number>;
+  otherPreferenceVector: Map<string, number>;
 }) {
   const {
     ownTracks,
@@ -276,83 +286,189 @@ function selectFarTracks(params: {
     ownTopArtists,
     otherTopArtists,
     ownArtistDetailMap,
-    limit,
+    ownPreferenceVector,
+    otherPreferenceVector,
   } = params;
 
   const otherTrackIds = new Set(otherTracks.map((track) => track.id));
-  const otherTopArtistNames = getArtistNameSet(otherTopArtists);
-  const otherGenreSet = getGenreSetFromArtists(otherTopArtists);
-  const ownGenreSet = getGenreSetFromArtists(ownTopArtists);
+  const otherArtistIds = getArtistIdSetFromTracksAndArtists(
+    otherTracks,
+    otherTopArtists
+  );
 
-  const scoredTracks = ownTracks.map((track, index) => {
-    const artistNames = track.artists.map((artist) => artist.name.toLowerCase());
-    const trackGenres = getTrackGenres(track, ownArtistDetailMap);
+  return ownTracks
+    .map((track, index): ScoredTrack => {
+      const trackVector = buildTrackVector(track, ownArtistDetailMap);
 
-    const sameTrack = otherTrackIds.has(track.id);
-    const sameTopArtist = artistNames.some((artistName) =>
-      otherTopArtistNames.has(artistName)
-    );
+      const ownSimilarity = cosineSimilarity(trackVector, ownPreferenceVector);
+      const otherSimilarity = cosineSimilarity(
+        trackVector,
+        otherPreferenceVector
+      );
 
-    const otherGenreOverlap = countGenreOverlap(trackGenres, otherGenreSet);
-    const ownGenreOverlap = countGenreOverlap(trackGenres, ownGenreSet);
+      const sameTrack = otherTrackIds.has(track.id);
+      const sameArtist = track.artists.some((artist) =>
+        otherArtistIds.has(artist.id)
+      );
 
-    let score = 0;
+      // Top Tracks上位ほど、その人らしい曲として少し加点する
+      const rankScore = 1 - index / Math.max(ownTracks.length, 1);
 
-    // 自分のTop上位曲ほど、その人らしい曲として加点する
-    score += Math.max(0, 30 - index);
+      let score = 0;
 
-    // 相手と同じ曲なら逆Blend感が弱いので大きく減点する
-    if (sameTrack) {
-      score -= 100;
-    } else {
-      score += 30;
-    }
+      // 自分に近いほど加点する
+      score += ownSimilarity * 80;
 
-    // 相手のTop Artistsと同じアーティストなら減点する
-    if (sameTopArtist) {
-      score -= 50;
-    } else {
-      score += 30;
-    }
+      // 相手に近いほど減点する
+      score -= otherSimilarity * 100;
 
-    // 相手のジャンルと重なるほど減点する
-    score -= otherGenreOverlap * 25;
+      // Top Tracks上位曲を少し優先する
+      score += rankScore * 25;
 
-    // 自分側のジャンルには乗っている曲なら、その人らしさとして加点する
-    score += ownGenreOverlap * 10;
+      // 同じ曲は逆Blend感が弱いので大きく減点する
+      if (sameTrack) {
+        score -= 120;
+      } else {
+        score += 20;
+      }
 
-    // ジャンル情報が取れない曲は判断材料が少ないので軽く減点する
-    if (trackGenres.length === 0) {
-      score -= 10;
-    }
+      // 同じアーティストも近い趣味と見なして減点する
+      if (sameArtist) {
+        score -= 55;
+      } else {
+        score += 20;
+      }
 
-    return {
-      track,
-      score,
-      debug: {
-        trackGenres,
-        sameTrack,
-        sameTopArtist,
-        otherGenreOverlap,
-        ownGenreOverlap,
-      },
-    };
-  });
-
-  const sortedTracks = scoredTracks
-    .sort((a, b) => b.score - a.score)
-    .map((item) => ({
-      track: item.track,
-      score: item.score,
-    }));
-
-  return selectWithDiversity(sortedTracks, limit);
+      return {
+        track,
+        score,
+        ownSimilarity,
+        otherSimilarity,
+        rankScore,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
 }
 
-function interleaveTracks(
-  hostTracks: ScoredTrack[],
-  guestTracks: ScoredTrack[]
-) {
+// MMRにより、スコアが高いだけでなく、選ばれた曲同士が似すぎないようにする
+function selectWithMmrAndDiversity(params: {
+  scoredTracks: ScoredTrack[];
+  artistDetailMap: Map<string, SpotifyArtist>;
+  limit: number;
+}) {
+  const { scoredTracks, artistDetailMap, limit } = params;
+
+  const selected: ScoredTrack[] = [];
+  const selectedTrackIds = new Set<string>();
+  const artistCounts = new Map<string, number>();
+  const albumCounts = new Map<string, number>();
+
+  // relaxLevel 0: アーティスト・アルバム制約を守る
+  // relaxLevel 1: アルバム制約だけ緩める
+  // relaxLevel 2: それでも足りない場合、制約を緩めて補充する
+  for (let relaxLevel = 0; relaxLevel <= 2; relaxLevel++) {
+    while (selected.length < limit) {
+      let bestItem: ScoredTrack | null = null;
+      let bestAdjustedScore = -Infinity;
+
+      for (const item of scoredTracks) {
+        const track = item.track;
+
+        if (selectedTrackIds.has(track.id)) {
+          continue;
+        }
+
+        const artistId = getPrimaryArtistId(track);
+        const albumId = getAlbumId(track);
+        const artistCount = artistCounts.get(artistId) ?? 0;
+        const albumCount = albumCounts.get(albumId) ?? 0;
+
+        if (relaxLevel === 0) {
+          if (artistCount >= MAX_TRACKS_PER_ARTIST) {
+            continue;
+          }
+
+          if (albumCount >= MAX_TRACKS_PER_ALBUM) {
+            continue;
+          }
+        }
+
+        if (relaxLevel === 1) {
+          if (artistCount >= MAX_TRACKS_PER_ARTIST) {
+            continue;
+          }
+        }
+
+        const trackVector = buildTrackVector(track, artistDetailMap);
+
+        let maxSimilarityToSelected = 0;
+
+        for (const selectedItem of selected) {
+          const selectedVector = buildTrackVector(
+            selectedItem.track,
+            artistDetailMap
+          );
+          const similarity = cosineSimilarity(trackVector, selectedVector);
+          maxSimilarityToSelected = Math.max(
+            maxSimilarityToSelected,
+            similarity
+          );
+        }
+
+        // すでに選ばれた曲と似ているほど減点する
+        const adjustedScore =
+          item.score - maxSimilarityToSelected * MMR_DIVERSITY_WEIGHT;
+
+        if (adjustedScore > bestAdjustedScore) {
+          bestAdjustedScore = adjustedScore;
+          bestItem = item;
+        }
+      }
+
+      if (!bestItem) {
+        break;
+      }
+
+      selected.push(bestItem);
+      selectedTrackIds.add(bestItem.track.id);
+
+      const artistId = getPrimaryArtistId(bestItem.track);
+      const albumId = getAlbumId(bestItem.track);
+
+      artistCounts.set(artistId, (artistCounts.get(artistId) ?? 0) + 1);
+      albumCounts.set(albumId, (albumCounts.get(albumId) ?? 0) + 1);
+    }
+
+    if (selected.length >= limit) {
+      break;
+    }
+  }
+
+  return selected;
+}
+
+// 1人分の候補曲から、逆Blend向きの曲を選ぶ
+function selectFarTracks(params: {
+  ownTracks: SpotifyTrack[];
+  otherTracks: SpotifyTrack[];
+  ownTopArtists: SpotifyArtist[];
+  otherTopArtists: SpotifyArtist[];
+  ownArtistDetailMap: Map<string, SpotifyArtist>;
+  ownPreferenceVector: Map<string, number>;
+  otherPreferenceVector: Map<string, number>;
+  limit: number;
+}) {
+  const scoredTracks = scoreTracks(params);
+
+  return selectWithMmrAndDiversity({
+    scoredTracks,
+    artistDetailMap: params.ownArtistDetailMap,
+    limit: params.limit,
+  });
+}
+
+// ホスト由来・ゲスト由来を交互に並べる
+function interleaveTracks(hostTracks: ScoredTrack[], guestTracks: ScoredTrack[]) {
   const result: ScoredTrack[] = [];
   const maxLength = Math.max(hostTracks.length, guestTracks.length);
 
@@ -366,17 +482,17 @@ function interleaveTracks(
     }
   }
 
-  const uniqueTracks: ScoredTrack[] = [];
+  const uniqueResult: ScoredTrack[] = [];
   const seenUris = new Set<string>();
 
   for (const item of result) {
     if (!seenUris.has(item.track.uri)) {
-      uniqueTracks.push(item);
+      uniqueResult.push(item);
       seenUris.add(item.track.uri);
     }
   }
 
-  return uniqueTracks;
+  return uniqueResult;
 }
 
 export async function POST(
@@ -470,13 +586,27 @@ export async function POST(
       ),
     ]);
 
+    const hostPreferenceVector = buildUserPreferenceVector({
+      topArtists: hostTopArtists,
+      tracks: hostTracks,
+      trackArtistDetailMap: hostArtistDetailMap,
+    });
+
+    const guestPreferenceVector = buildUserPreferenceVector({
+      topArtists: guestTopArtists,
+      tracks: guestTracks,
+      trackArtistDetailMap: guestArtistDetailMap,
+    });
+
     const selectedHostTracks = selectFarTracks({
       ownTracks: hostTracks,
       otherTracks: guestTracks,
       ownTopArtists: hostTopArtists,
       otherTopArtists: guestTopArtists,
       ownArtistDetailMap: hostArtistDetailMap,
-      limit: 10,
+      ownPreferenceVector: hostPreferenceVector,
+      otherPreferenceVector: guestPreferenceVector,
+      limit: TRACKS_PER_USER,
     });
 
     const selectedGuestTracks = selectFarTracks({
@@ -485,13 +615,16 @@ export async function POST(
       ownTopArtists: guestTopArtists,
       otherTopArtists: hostTopArtists,
       ownArtistDetailMap: guestArtistDetailMap,
-      limit: 10,
+      ownPreferenceVector: guestPreferenceVector,
+      otherPreferenceVector: hostPreferenceVector,
+      limit: TRACKS_PER_USER,
     });
 
     const playlistTracks = interleaveTracks(
       selectedHostTracks,
       selectedGuestTracks
     );
+
     const trackUris = playlistTracks.map((item) => item.track.uri);
 
     const hostName = hostUser.display_name ?? "Host";
@@ -508,7 +641,7 @@ export async function POST(
         body: JSON.stringify({
           name: `逆Blend - ${hostName} × ${guestName}`,
           description:
-            "2人のSpotify傾向から、あえて共通点が少なそうな曲を集めたプレイリストです。奇数曲はホスト由来、偶数曲はゲスト由来で、上から順に共通点が少ない順に並べています。",
+            "2人のSpotify傾向から、あえて共通点が少なそうな曲を集めたプレイリストです。奇数曲はホスト由来、偶数曲はゲスト由来です。",
           public: false,
         }),
       }
@@ -559,9 +692,13 @@ export async function POST(
         id: item.track.id,
         name: item.track.name,
         artists: item.track.artists.map((artist) => artist.name).join(", "),
+        album: item.track.album?.name ?? null,
         uri: item.track.uri,
-        score: item.score,
         source: index % 2 === 0 ? "host" : "guest",
+        score: Number(item.score.toFixed(3)),
+        ownSimilarity: Number(item.ownSimilarity.toFixed(3)),
+        otherSimilarity: Number(item.otherSimilarity.toFixed(3)),
+        rankScore: Number(item.rankScore.toFixed(3)),
       })),
     });
   } catch (error) {
