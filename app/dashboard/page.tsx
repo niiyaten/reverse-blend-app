@@ -82,6 +82,30 @@ export default function DashboardPage() {
     }
   }
 
+  async function createRoom() {
+    try {
+      setErrorMessage("");
+
+      const response = await fetch("/api/rooms/create", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "招待ルームの作成に失敗しました。");
+      }
+
+      window.location.href = data.roomUrl;
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("不明なエラーが発生しました。");
+      }
+    }
+  }
+
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
       <section className="mx-auto max-w-3xl">
@@ -117,12 +141,21 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <button
-          onClick={createTestPlaylist}
-          className="mb-8 rounded-full bg-green-500 px-6 py-3 font-bold text-black transition hover:bg-green-400"
-        >
-          テストプレイリストを作成
-        </button>
+        <div className="mb-8 flex flex-col gap-3 sm:flex-row">
+          <button
+            onClick={createTestPlaylist}
+            className="rounded-full bg-green-500 px-6 py-3 font-bold text-black transition hover:bg-green-400"
+          >
+            テストプレイリストを作成
+          </button>
+
+          <button
+            onClick={createRoom}
+            className="rounded-full bg-white px-6 py-3 font-bold text-black transition hover:bg-zinc-200"
+          >
+            招待ルームを作成
+          </button>
+        </div>
 
         <div className="rounded-2xl bg-zinc-900 p-6">
           <h2 className="mb-4 text-xl font-bold">よく聴いている曲 Top 10</h2>
@@ -152,15 +185,6 @@ export default function DashboardPage() {
               {loading ? "読み込み中..." : "Top Tracksがありません。"}
             </p>
           )}
-        </div>
-
-        <div className="mt-8 flex gap-4 text-sm">
-          <a className="text-green-400 underline" href="/api/spotify/profile">
-            profile API確認
-          </a>
-          <a className="text-green-400 underline" href="/api/spotify/top-tracks">
-            top-tracks API確認
-          </a>
         </div>
       </section>
     </main>
