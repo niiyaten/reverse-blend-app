@@ -11,6 +11,9 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const error = request.nextUrl.searchParams.get("error");
 
+  // SpotifyのstateにroomIdを入れている
+  const roomId = request.nextUrl.searchParams.get("state");
+
   if (error) {
     return NextResponse.json({ error }, { status: 400 });
   }
@@ -89,6 +92,7 @@ export async function GET(request: NextRequest) {
     Date.now() + tokenData.expires_in * 1000
   ).toISOString();
 
+  // Spotifyユーザー情報をusersテーブルに保存する
   const { data: savedUser, error: saveUserError } = await supabaseServer
     .from("users")
     .upsert(
@@ -118,7 +122,49 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const response = NextResponse.redirect(`${appUrl}/dashboard`);
+  // roomIdがある場合は、そのroomにゲストとして参加させる
+  if (roomId) {
+    const { data: room, error: roomFetchError } = await supabaseServer
+      .from("rooms")
+      .select("id, host_user_id, guest_user_id")
+      .eq("id", roomId)
+      .single();
+
+    if (roomFetchError || !room) {
+      return NextResponse.json(
+        {
+          error: "Room not found.",
+          detail: roomFetchError?.message,
+        },
+        { status: 404 }
+      );
+    }
+
+    // ホスト本人が自分の招待URLを開いた場合は、guest_user_idには入れない
+    if (room.host_user_id !== savedUser.id) {
+      const { error: roomUpdateError } = await supabaseServer
+        .from("rooms")
+        .update({
+          guest_user_id: savedUser.id,
+          status: "ready",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", roomId);
+
+      if (roomUpdateError) {
+        return NextResponse.json(
+          {
+            error: "Failed to join room.",
+            detail: roomUpdateError.message,
+          },
+          { status: 500 }
+        );
+      }
+    }
+  }
+
+  const redirectUrl = roomId ? `${appUrl}/room/${roomId}` : `${appUrl}/dashboard`;
+  const response = NextResponse.redirect(redirectUrl);
 
   response.cookies.set("spotify_access_token", tokenData.access_token, {
     httpOnly: true,
