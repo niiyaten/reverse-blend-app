@@ -14,11 +14,17 @@ type SpotifyArtist = {
   genres?: string[];
 };
 
+type SpotifyAlbum = {
+  id: string;
+  name: string;
+};
+
 type SpotifyTrack = {
   id: string;
   name: string;
   uri: string;
   artists: SpotifyArtist[];
+  album: SpotifyAlbum;
 };
 
 type SpotifyTopTracksResponse = {
@@ -36,6 +42,20 @@ type SpotifyPlaylistResponse = {
     spotify: string;
   };
 };
+
+type ScoredTrack = {
+  track: SpotifyTrack;
+  score: number;
+};
+
+// 1人15曲ずつ
+const MAX_TRACKS_PER_USER = 15;
+
+// 1人由来の10曲内で、同じアーティストは最大2曲まで
+const MAX_TRACKS_PER_ARTIST = 2;
+
+// 1人由来の10曲内で、同じアルバムは基本1曲まで
+const MAX_TRACKS_PER_ALBUM = 1;
 
 async function fetchJson<T>(url: string, accessToken: string): Promise<T> {
   const response = await fetch(url, {
@@ -69,7 +89,7 @@ async function getRecentlyPlayedTracks(accessToken: string) {
 
 async function getTopTracksOrRecentTracks(accessToken: string) {
   const data = await fetchJson<SpotifyTopTracksResponse>(
-    "https://api.spotify.com/v1/me/top/tracks?limit=30&time_range=medium_term",
+    "https://api.spotify.com/v1/me/top/tracks?limit=30&time_range=long_term",
     accessToken
   );
 
@@ -82,7 +102,7 @@ async function getTopTracksOrRecentTracks(accessToken: string) {
 
 async function getTopArtists(accessToken: string) {
   const data = await fetchJson<SpotifyTopArtistsResponse>(
-    "https://api.spotify.com/v1/me/top/artists?limit=30&time_range=medium_term",
+    "https://api.spotify.com/v1/me/top/artists?limit=30&time_range=long_term",
     accessToken
   );
 
@@ -153,6 +173,93 @@ function getTrackGenres(
 
 function countGenreOverlap(trackGenres: string[], otherGenreSet: Set<string>) {
   return trackGenres.filter((genre) => otherGenreSet.has(genre)).length;
+}
+
+function getPrimaryArtistId(track: SpotifyTrack) {
+  return track.artists[0]?.id ?? "unknown-artist";
+}
+
+function getAlbumId(track: SpotifyTrack) {
+  return track.album?.id ?? "unknown-album";
+}
+
+function selectWithDiversity(scoredTracks: ScoredTrack[], limit: number) {
+  const selected: ScoredTrack[] = [];
+  const artistCounts = new Map<string, number>();
+  const albumCounts = new Map<string, number>();
+  const selectedTrackIds = new Set<string>();
+
+  // 1周目：アーティスト数・アルバム数の制約を守って選ぶ
+  for (const item of scoredTracks) {
+    const track = item.track;
+    const artistId = getPrimaryArtistId(track);
+    const albumId = getAlbumId(track);
+
+    const artistCount = artistCounts.get(artistId) ?? 0;
+    const albumCount = albumCounts.get(albumId) ?? 0;
+
+    if (selectedTrackIds.has(track.id)) {
+      continue;
+    }
+
+    if (artistCount >= MAX_TRACKS_PER_ARTIST) {
+      continue;
+    }
+
+    if (albumCount >= MAX_TRACKS_PER_ALBUM) {
+      continue;
+    }
+
+    selected.push(item);
+    selectedTrackIds.add(track.id);
+    artistCounts.set(artistId, artistCount + 1);
+    albumCounts.set(albumId, albumCount + 1);
+
+    if (selected.length >= limit) {
+      return selected;
+    }
+  }
+
+  // 2周目：曲が足りない場合は、アルバム制約だけ緩める
+  for (const item of scoredTracks) {
+    const track = item.track;
+    const artistId = getPrimaryArtistId(track);
+    const artistCount = artistCounts.get(artistId) ?? 0;
+
+    if (selectedTrackIds.has(track.id)) {
+      continue;
+    }
+
+    if (artistCount >= MAX_TRACKS_PER_ARTIST) {
+      continue;
+    }
+
+    selected.push(item);
+    selectedTrackIds.add(track.id);
+    artistCounts.set(artistId, artistCount + 1);
+
+    if (selected.length >= limit) {
+      return selected;
+    }
+  }
+
+  // 3周目：それでも足りない場合は、スコア順に補充する
+  for (const item of scoredTracks) {
+    const track = item.track;
+
+    if (selectedTrackIds.has(track.id)) {
+      continue;
+    }
+
+    selected.push(item);
+    selectedTrackIds.add(track.id);
+
+    if (selected.length >= limit) {
+      return selected;
+    }
+  }
+
+  return selected;
 }
 
 function selectFarTracks(params: {
@@ -232,14 +339,21 @@ function selectFarTracks(params: {
     };
   });
 
-  return scoredTracks
+  const sortedTracks = scoredTracks
     .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((item) => item.track);
+    .map((item) => ({
+      track: item.track,
+      score: item.score,
+    }));
+
+  return selectWithDiversity(sortedTracks, limit);
 }
 
-function interleaveTracks(hostTracks: SpotifyTrack[], guestTracks: SpotifyTrack[]) {
-  const result: SpotifyTrack[] = [];
+function interleaveTracks(
+  hostTracks: ScoredTrack[],
+  guestTracks: ScoredTrack[]
+) {
+  const result: ScoredTrack[] = [];
   const maxLength = Math.max(hostTracks.length, guestTracks.length);
 
   for (let i = 0; i < maxLength; i++) {
@@ -252,7 +366,17 @@ function interleaveTracks(hostTracks: SpotifyTrack[], guestTracks: SpotifyTrack[
     }
   }
 
-  return uniqueTracks(result);
+  const uniqueTracks: ScoredTrack[] = [];
+  const seenUris = new Set<string>();
+
+  for (const item of result) {
+    if (!seenUris.has(item.track.uri)) {
+      uniqueTracks.push(item);
+      seenUris.add(item.track.uri);
+    }
+  }
+
+  return uniqueTracks;
 }
 
 export async function POST(
@@ -368,7 +492,7 @@ export async function POST(
       selectedHostTracks,
       selectedGuestTracks
     );
-    const trackUris = playlistTracks.map((track) => track.uri);
+    const trackUris = playlistTracks.map((item) => item.track.uri);
 
     const hostName = hostUser.display_name ?? "Host";
     const guestName = guestUser.display_name ?? "Guest";
@@ -384,7 +508,7 @@ export async function POST(
         body: JSON.stringify({
           name: `逆Blend - ${hostName} × ${guestName}`,
           description:
-            "2人のSpotify傾向から、あえて共通点が少なそうな曲を集めたプレイリストです。",
+            "2人のSpotify傾向から、あえて共通点が少なそうな曲を集めたプレイリストです。奇数曲はホスト由来、偶数曲はゲスト由来で、上から順に共通点が少ない順に並べています。",
           public: false,
         }),
       }
@@ -430,11 +554,14 @@ export async function POST(
         name: playlist.name,
         spotifyUrl: playlist.external_urls.spotify,
       },
-      tracks: playlistTracks.map((track) => ({
-        id: track.id,
-        name: track.name,
-        artists: track.artists.map((artist) => artist.name).join(", "),
-        uri: track.uri,
+      tracks: playlistTracks.map((item, index) => ({
+        position: index + 1,
+        id: item.track.id,
+        name: item.track.name,
+        artists: item.track.artists.map((artist) => artist.name).join(", "),
+        uri: item.track.uri,
+        score: item.score,
+        source: index % 2 === 0 ? "host" : "guest",
       })),
     });
   } catch (error) {
