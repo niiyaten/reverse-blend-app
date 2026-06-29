@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 const scopes = [
   "user-read-private",
-  "user-read-email",
   "user-top-read",
   "playlist-modify-private",
   "user-read-recently-played",

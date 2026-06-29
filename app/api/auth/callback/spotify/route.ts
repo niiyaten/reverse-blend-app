@@ -4,7 +4,6 @@ import { supabaseServer } from "../../../../lib/supabase-server";
 type SpotifyProfile = {
   id: string;
   display_name: string;
-  email: string;
 };
 
 export async function GET(request: NextRequest) {
@@ -99,7 +98,6 @@ export async function GET(request: NextRequest) {
       {
         spotify_user_id: profile.id,
         display_name: profile.display_name,
-        email: profile.email,
         access_token: tokenData.access_token,
         refresh_token: tokenData.refresh_token,
         token_expires_at: tokenExpiresAt,
@@ -109,7 +107,7 @@ export async function GET(request: NextRequest) {
         onConflict: "spotify_user_id",
       }
     )
-    .select("id, spotify_user_id, display_name, email")
+    .select("id, spotify_user_id, display_name")
     .single();
 
   if (saveUserError) {

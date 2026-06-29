@@ -35,6 +35,5 @@ export async function GET() {
   return NextResponse.json({
     id: profile.id,
     display_name: profile.display_name,
-    email: profile.email,
   });
 }

@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 type Profile = {
   id: string;
   display_name: string;
-  email: string;
 };
 
 type Track = {
@@ -131,8 +130,6 @@ export default function DashboardPage() {
           {profile ? (
             <div className="space-y-1 text-zinc-300">
               <p>表示名：{profile.display_name}</p>
-              <p>Spotify ID：{profile.id}</p>
-              <p>メール：{profile.email}</p>
             </div>
           ) : (
             <p className="text-zinc-400">
