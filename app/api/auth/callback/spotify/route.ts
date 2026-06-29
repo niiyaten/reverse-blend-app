@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
 
   response.cookies.set("spotify_access_token", tokenData.access_token, {
     httpOnly: true,
-    secure: false,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: tokenData.expires_in,
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
 
   response.cookies.set("app_user_id", savedUser.id, {
     httpOnly: true,
-    secure: false,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
