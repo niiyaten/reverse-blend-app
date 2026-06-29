@@ -2,11 +2,66 @@
 
 ## 概要
 
-逆Blendは、2人のSpotifyアカウントを連携し、通常のSpotify Blendとは逆に、**あえて共通点が少なそうな曲を集めたプレイリスト**を作成するWebアプリです。
+Taste Clash Playlistは、2人のSpotify上の音楽傾向をもとに、あえて共通点が少なそうな曲を集めた非公開プレイリストを作成するWebアプリです。
 
-通常のBlendが「2人の好みを混ぜる」方向であるのに対し、本アプリでは「2人の音楽性のズレ」を楽しむことを目的としています。
+本アプリはSpotify公式サービスではありません。SpotifyおよびSpotify Blendとは無関係の個人開発アプリです。
 
-作成されたプレイリストは、ホスト側のSpotifyアカウントに非公開プレイリストとして作成されます。
+## Production URL
+
+https://reverse-blend-app.vercel.app
+
+## 現在の公開範囲
+
+現在はSpotify Development Modeでの身内テスト版です。
+
+そのため、利用できるユーザーはSpotify Developer DashboardのUsers Managementに登録されたテストユーザーに限られる場合があります。一般公開には、SpotifyのExtended quota mode申請が必要です。
+
+## 利用するSpotifyデータ
+
+本アプリは、Spotifyログインを通じて以下の情報を利用します。
+
+* SpotifyユーザーID
+* Spotify上の表示名
+* Top Tracks
+* Top Artists
+* Recently Played
+* Spotify APIのaccess token / refresh token
+* 作成したプレイリスト情報
+
+メールアドレスは取得・保存しません。
+
+## 使用しているSpotify scope
+
+現在使用しているscopeは以下です。
+
+* `user-read-private`
+* `user-top-read`
+* `user-read-recently-played`
+* `playlist-modify-private`
+
+## 法務ページ
+
+* プライバシーポリシー: https://reverse-blend-app.vercel.app/privacy
+* 利用規約: https://reverse-blend-app.vercel.app/terms
+
+## 主な機能
+
+* Spotify OAuthログイン
+* 招待ルーム作成
+* 2人目のSpotifyログインによるルーム参加
+* Top Tracks / Top Artists取得
+* Top Tracksが空の場合のRecently Played fallback
+* ユーザーの音楽傾向をもとにした距離スコア計算
+* ホスト由来曲とゲスト由来曲の交互配置
+* 同一アーティスト・同一アルバムへの偏り抑制
+* ホスト側Spotifyアカウントへの非公開プレイリスト作成
+* Webアプリ上でのスコア表示
+
+## 注意事項
+
+本アプリは試験運用中です。Spotify API、Supabase、Vercelなど外部サービスの仕様変更や制限により、予告なく動作しなくなる可能性があります。
+
+作成されるプレイリストの内容や品質は保証されません。
 
 ---
 
@@ -24,25 +79,6 @@
 * 相手が普段聴かなそうな曲を集める
 * 「これはどちら由来の曲か」を交互配置で楽しむ
 
----
-
-## 現在の主な機能
-
-### 実装済み
-
-* Spotify OAuthログイン
-* Spotifyプロフィール取得
-* Spotify Top Tracks取得
-* Top Tracksが空の場合のRecently Played fallback
-* Supabaseへのユーザー情報保存
-* 招待ルーム作成
-* 招待URL発行
-* 2人目のSpotifyログインによるルーム参加
-* 2人分のSpotifyデータ取得
-* 逆Blendプレイリスト作成
-* ホスト側Spotifyアカウントへの非公開プレイリスト作成
-* プレイリストへの曲追加
-* 作成済みプレイリストURLのSupabase保存
 
 ---
 
@@ -62,10 +98,10 @@ public: false
 
 ### 曲数
 
-初期仕様では最大20曲です。
+初期仕様では最大30曲です。
 
-* ホスト由来：最大10曲
-* ゲスト由来：最大10曲
+* ホスト由来：最大15曲
+* ゲスト由来：最大15曲
 
 ### 並び順
 

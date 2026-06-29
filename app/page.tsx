@@ -6,12 +6,28 @@ export default function Home() {
           Spotify Playlist Generator
         </p>
 
-        <h1 className="mb-6 text-5xl font-bold tracking-tight">逆Blend</h1>
+        <h1 className="mb-6 text-5xl font-bold tracking-tight">
+          Taste Clash Playlist
+        </h1>
 
-        <p className="mb-10 max-w-xl text-lg leading-8 text-zinc-300">
-          友達とのSpotifyの音楽傾向から、あえて共通点の少ない曲を集めた
-          プレイリストを作成します。
+        <p className="mb-8 max-w-xl text-lg leading-8 text-zinc-300">
+          2人のSpotify上の音楽傾向をもとに、あえて共通点が少なそうな曲を集めた
+          非公開プレイリストを作成します。
         </p>
+
+        <div className="mb-8 rounded-2xl bg-zinc-900 p-5 text-left text-sm leading-7 text-zinc-300">
+          <p>
+            このアプリはSpotify公式サービスではありません。
+            SpotifyおよびSpotify Blendとは無関係の個人開発アプリです。
+          </p>
+          <p className="mt-2">
+            SpotifyのTop Tracks、Top Artists、Recently Playedなどを利用して、
+            プレイリストを作成します。
+          </p>
+          <p className="mt-2">
+            利用前に、プライバシーポリシーと利用規約を確認してください。
+          </p>
+        </div>
 
         <a
           href="/api/auth/login"
@@ -20,8 +36,17 @@ export default function Home() {
           Spotifyでログイン
         </a>
 
+        <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm">
+          <a href="/privacy" className="text-green-400 underline">
+            プライバシーポリシー
+          </a>
+          <a href="/terms" className="text-green-400 underline">
+            利用規約
+          </a>
+        </div>
+
         <p className="mt-8 text-sm text-zinc-500">
-          まずは自分と友達1人で使えるMVPとして開発中です。
+          現在は試験運用中です。Spotify Developer Dashboardで許可されたユーザーのみ利用できる場合があります。
         </p>
       </section>
     </main>
