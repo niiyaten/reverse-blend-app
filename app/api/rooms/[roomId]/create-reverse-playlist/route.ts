@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createErrorBody } from "../../../../lib/api-error";
 import { supabaseServer } from "../../../../lib/supabase-server";
 
 type AppUser = {
@@ -71,7 +72,7 @@ async function fetchJson<T>(url: string, accessToken: string): Promise<T> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Spotify API request failed: ${errorText}`);
+    throw new Error(`Spotify APIリクエストに失敗しました: ${errorText}`);
   }
 
   return response.json() as Promise<T>;
@@ -509,10 +510,7 @@ export async function POST(
 
   if (roomError || !room) {
     return NextResponse.json(
-      {
-        error: "Room not found.",
-        detail: roomError?.message,
-      },
+      createErrorBody("招待ルームが見つかりません。", roomError?.message),
       { status: 404 }
     );
   }
@@ -533,10 +531,10 @@ export async function POST(
 
   if (usersError || !users) {
     return NextResponse.json(
-      {
-        error: "Failed to get room users.",
-        detail: usersError?.message,
-      },
+      createErrorBody(
+        "ルーム参加者の情報取得に失敗しました。",
+        usersError?.message
+      ),
       { status: 500 }
     );
   }
@@ -551,7 +549,7 @@ export async function POST(
   if (!hostUser || !guestUser) {
     return NextResponse.json(
       {
-        error: "Host or guest user was not found.",
+        error: "ホストまたはゲストのユーザー情報が見つかりません。",
       },
       { status: 500 }
     );
@@ -649,7 +647,7 @@ export async function POST(
 
     if (!playlistResponse.ok) {
       const errorText = await playlistResponse.text();
-      throw new Error(`Failed to create playlist: ${errorText}`);
+      throw new Error(`Spotifyプレイリストの作成に失敗しました: ${errorText}`);
     }
 
     const playlist = (await playlistResponse.json()) as SpotifyPlaylistResponse;
@@ -670,7 +668,7 @@ export async function POST(
 
     if (!addTracksResponse.ok) {
       const errorText = await addTracksResponse.text();
-      throw new Error(`Failed to add tracks: ${errorText}`);
+      throw new Error(`Spotifyプレイリストへの曲追加に失敗しました: ${errorText}`);
     }
 
     await supabaseServer.from("playlists").insert({
@@ -704,17 +702,17 @@ export async function POST(
   } catch (error) {
     if (error instanceof Error) {
       return NextResponse.json(
-        {
-          error: "Failed to create reverse playlist.",
-          detail: error.message,
-        },
+        createErrorBody(
+          "リバースプレイリストの作成に失敗しました。",
+          error.message
+        ),
         { status: 500 }
       );
     }
 
     return NextResponse.json(
       {
-        error: "Unknown error occurred.",
+        error: "予期しないエラーが発生しました。",
       },
       { status: 500 }
     );

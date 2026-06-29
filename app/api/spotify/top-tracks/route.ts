@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { createErrorBody } from "../../../lib/api-error";
 
 export async function GET() {
   const cookieStore = await cookies();
@@ -7,7 +8,7 @@ export async function GET() {
 
   if (!accessToken) {
     return NextResponse.json(
-      { error: "Spotify access token is missing." },
+      { error: "Spotifyログイン情報が見つかりません。もう一度ログインしてください。" },
       { status: 401 }
     );
   }
@@ -26,10 +27,7 @@ export async function GET() {
     const errorText = await topTracksResponse.text();
 
     return NextResponse.json(
-      {
-        error: "Failed to get Spotify top tracks.",
-        detail: errorText,
-      },
+      createErrorBody("よく聴く曲の取得に失敗しました。", errorText),
       { status: 500 }
     );
   }

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { createErrorBody } from "../../../lib/api-error";
 import { supabaseServer } from "../../../lib/supabase-server";
 
 export async function POST() {
@@ -16,7 +17,7 @@ export async function POST() {
 
   if (!appUrl) {
     return NextResponse.json(
-      { error: "APP_URL is missing." },
+      { error: "アプリのURL設定が不足しています。" },
       { status: 500 }
     );
   }
@@ -34,10 +35,7 @@ export async function POST() {
 
   if (error) {
     return NextResponse.json(
-      {
-        error: "Failed to create room.",
-        detail: error.message,
-      },
+      createErrorBody("招待ルームの作成に失敗しました。", error.message),
       { status: 500 }
     );
   }

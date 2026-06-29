@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createErrorBody } from "../../../lib/api-error";
 import { supabaseServer } from "../../../lib/supabase-server";
 
 export async function GET(
@@ -31,10 +32,7 @@ export async function GET(
 
   if (error) {
     return NextResponse.json(
-      {
-        error: "Failed to get room.",
-        detail: error.message,
-      },
+      createErrorBody("招待ルームの取得に失敗しました。", error.message),
       { status: 500 }
     );
   }

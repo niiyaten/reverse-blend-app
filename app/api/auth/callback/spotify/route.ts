@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createErrorBody } from "../../../../lib/api-error";
 import { supabaseServer } from "../../../../lib/supabase-server";
 
 type SpotifyProfile = {
@@ -10,16 +11,19 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const error = request.nextUrl.searchParams.get("error");
 
-  // SpotifyのstateにroomIdを入れている
+  // Spotifyのstateには、招待ルーム経由のログイン時だけroomIdを入れている
   const roomId = request.nextUrl.searchParams.get("state");
 
   if (error) {
-    return NextResponse.json({ error }, { status: 400 });
+    return NextResponse.json(
+      createErrorBody("Spotifyログインがキャンセルまたは失敗しました。", error),
+      { status: 400 }
+    );
   }
 
   if (!code) {
     return NextResponse.json(
-      { error: "Authorization code is missing." },
+      { error: "Spotify認証コードが見つかりません。" },
       { status: 400 }
     );
   }
@@ -31,7 +35,7 @@ export async function GET(request: NextRequest) {
 
   if (!clientId || !clientSecret || !redirectUri || !appUrl) {
     return NextResponse.json(
-      { error: "Spotify environment variables are missing." },
+      { error: "Spotify連携に必要な環境変数が不足しています。" },
       { status: 500 }
     );
   }
@@ -57,10 +61,10 @@ export async function GET(request: NextRequest) {
     const errorText = await tokenResponse.text();
 
     return NextResponse.json(
-      {
-        error: "Failed to get Spotify access token.",
-        detail: errorText,
-      },
+      createErrorBody(
+        "Spotifyのアクセストークン取得に失敗しました。もう一度ログインしてください。",
+        errorText
+      ),
       { status: 500 }
     );
   }
@@ -77,10 +81,10 @@ export async function GET(request: NextRequest) {
     const errorText = await profileResponse.text();
 
     return NextResponse.json(
-      {
-        error: "Failed to get Spotify profile.",
-        detail: errorText,
-      },
+      createErrorBody(
+        "Spotifyプロフィールの取得に失敗しました。もう一度ログインしてください。",
+        errorText
+      ),
       { status: 500 }
     );
   }
@@ -91,7 +95,7 @@ export async function GET(request: NextRequest) {
     Date.now() + tokenData.expires_in * 1000
   ).toISOString();
 
-  // Spotifyユーザー情報をusersテーブルに保存する
+  // Spotifyユーザー情報とtokenを、プレイリスト作成時に参照できるよう保存する
   const { data: savedUser, error: saveUserError } = await supabaseServer
     .from("users")
     .upsert(
@@ -112,15 +116,15 @@ export async function GET(request: NextRequest) {
 
   if (saveUserError) {
     return NextResponse.json(
-      {
-        error: "Failed to save Spotify user to Supabase.",
-        detail: saveUserError.message,
-      },
+      createErrorBody(
+        "ログインユーザー情報の保存に失敗しました。",
+        saveUserError.message
+      ),
       { status: 500 }
     );
   }
 
-  // roomIdがある場合は、そのroomにゲストとして参加させる
+  // 招待ルーム経由のログインなら、ログインユーザーをゲストとして紐づける
   if (roomId) {
     const { data: room, error: roomFetchError } = await supabaseServer
       .from("rooms")
@@ -130,15 +134,15 @@ export async function GET(request: NextRequest) {
 
     if (roomFetchError || !room) {
       return NextResponse.json(
-        {
-          error: "Room not found.",
-          detail: roomFetchError?.message,
-        },
+        createErrorBody(
+          "招待ルームが見つかりません。",
+          roomFetchError?.message
+        ),
         { status: 404 }
       );
     }
 
-    // ホスト本人が自分の招待URLを開いた場合は、guest_user_idには入れない
+    // ホスト本人が自分の招待URLを開いた場合は、ゲストとして登録しない
     if (room.host_user_id !== savedUser.id) {
       const { error: roomUpdateError } = await supabaseServer
         .from("rooms")
@@ -151,10 +155,10 @@ export async function GET(request: NextRequest) {
 
       if (roomUpdateError) {
         return NextResponse.json(
-          {
-            error: "Failed to join room.",
-            detail: roomUpdateError.message,
-          },
+          createErrorBody(
+            "招待ルームへの参加に失敗しました。",
+            roomUpdateError.message
+          ),
           { status: 500 }
         );
       }

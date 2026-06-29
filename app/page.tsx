@@ -7,7 +7,7 @@ export default function Home() {
         </p>
 
         <h1 className="mb-6 text-5xl font-bold tracking-tight">
-          Taste Clash Playlist
+          逆Blendで作る、2人の共通点が少ないプレイリスト
         </h1>
 
         <p className="mb-8 max-w-xl text-lg leading-8 text-zinc-300">

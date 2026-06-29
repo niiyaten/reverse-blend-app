@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { createErrorBody } from "../../../lib/api-error";
 
 type SpotifyProfile = {
   id: string;
@@ -29,7 +30,7 @@ export async function POST() {
 
   if (!accessToken) {
     return NextResponse.json(
-      { error: "Spotify access token is missing." },
+      { error: "Spotifyログイン情報が見つかりません。もう一度ログインしてください。" },
       { status: 401 }
     );
   }
@@ -45,10 +46,10 @@ export async function POST() {
     const errorText = await profileResponse.text();
 
     return NextResponse.json(
-      {
-        error: "Failed to get Spotify profile.",
-        detail: errorText,
-      },
+      createErrorBody(
+        "Spotifyプロフィールの取得に失敗しました。",
+        errorText
+      ),
       { status: 500 }
     );
   }
@@ -69,10 +70,7 @@ export async function POST() {
     const errorText = await topTracksResponse.text();
 
     return NextResponse.json(
-      {
-        error: "Failed to get Spotify top tracks.",
-        detail: errorText,
-      },
+      createErrorBody("よく聴く曲の取得に失敗しました。", errorText),
       { status: 500 }
     );
   }
@@ -82,7 +80,7 @@ export async function POST() {
 
   if (trackUris.length === 0) {
     return NextResponse.json(
-      { error: "No top tracks found." },
+      { error: "プレイリストに追加できる曲が見つかりませんでした。" },
       { status: 400 }
     );
   }
@@ -109,10 +107,10 @@ export async function POST() {
     const errorText = await playlistResponse.text();
 
     return NextResponse.json(
-      {
-        error: "Failed to create Spotify playlist.",
-        detail: errorText,
-      },
+      createErrorBody(
+        "Spotifyプレイリストの作成に失敗しました。",
+        errorText
+      ),
       { status: 500 }
     );
   }
@@ -138,10 +136,10 @@ export async function POST() {
     const errorText = await addTracksResponse.text();
 
     return NextResponse.json(
-      {
-        error: "Failed to add tracks to Spotify playlist.",
-        detail: errorText,
-      },
+      createErrorBody(
+        "Spotifyプレイリストへの曲追加に失敗しました。",
+        errorText
+      ),
       { status: 500 }
     );
   }
