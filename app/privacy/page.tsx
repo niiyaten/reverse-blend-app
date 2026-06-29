@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
@@ -9,18 +11,17 @@ export default function PrivacyPage() {
         <div className="space-y-8 text-zinc-300">
           <section>
             <p>
-              本プライバシーポリシーは、Taste Clash Playlist（以下「本アプリ」といいます）における、
+              本プライバシーポリシーは、Crossfade Mix（以下「本アプリ」）における
               ユーザー情報の取得、利用、保存、管理について説明するものです。
             </p>
             <p className="mt-3">
-              本アプリはSpotify公式サービスではなく、SpotifyおよびSpotify Blendとは無関係の個人開発アプリです。
+              本アプリはSpotify公式サービスではなく、Spotifyとは無関係の個人開発アプリです。
             </p>
           </section>
 
           <section>
             <h2 className="mb-3 text-2xl font-bold text-white">1. 取得する情報</h2>
             <p>本アプリは、Spotifyログインを通じて以下の情報を取得する場合があります。</p>
-
             <ul className="mt-3 list-disc space-y-2 pl-6">
               <li>SpotifyユーザーID</li>
               <li>Spotify上の表示名</li>
@@ -31,7 +32,6 @@ export default function PrivacyPage() {
               <li>作成したプレイリストのIDおよびURL</li>
               <li>招待ルームに関する情報</li>
             </ul>
-
             <p className="mt-3">
               本アプリは、Spotifyアカウントのメールアドレスを取得・保存しません。
             </p>
@@ -40,12 +40,11 @@ export default function PrivacyPage() {
           <section>
             <h2 className="mb-3 text-2xl font-bold text-white">2. 利用目的</h2>
             <p>取得した情報は、以下の目的で利用します。</p>
-
             <ul className="mt-3 list-disc space-y-2 pl-6">
               <li>Spotifyログイン機能の提供</li>
-              <li>招待ルームの作成および参加状態の管理</li>
+              <li>招待ルームの作成および参加状況の管理</li>
               <li>2人の音楽傾向の比較</li>
-              <li>互いの音楽傾向の違いをもとにした非公開プレイリストの作成</li>
+              <li>共通点が少なそうな非公開プレイリストの作成</li>
               <li>作成済みプレイリスト情報の保存</li>
               <li>不具合調査および機能改善</li>
             </ul>
@@ -66,8 +65,6 @@ export default function PrivacyPage() {
             <h2 className="mb-3 text-2xl font-bold text-white">4. 第三者提供</h2>
             <p>
               本アプリは、取得したユーザーデータを広告目的で販売したり、第三者へ販売したりしません。
-            </p>
-            <p className="mt-3">
               ただし、本アプリの提供に必要な範囲で、Spotify API、Supabase、Vercelなどの外部サービスを利用します。
             </p>
           </section>
@@ -76,10 +73,11 @@ export default function PrivacyPage() {
             <h2 className="mb-3 text-2xl font-bold text-white">5. データの削除</h2>
             <p>
               ユーザーは、本アプリに保存された自身のデータの削除を依頼できます。
-              削除依頼を受けた場合、合理的な範囲で、関連するユーザー情報、ルーム情報、プレイリスト記録を削除します。
+              削除依頼を受けた場合、合理的な範囲で関連するユーザー情報、ルーム情報、
+              プレイリスト記録を削除します。
             </p>
             <p className="mt-3">
-              削除依頼の連絡先は、今後公開用の問い合わせ先を設定したうえで本ページに記載します。
+              削除依頼の連絡先は、公開用の問い合わせ手段を準備後に本ページへ記載します。
             </p>
           </section>
 
@@ -87,19 +85,18 @@ export default function PrivacyPage() {
             <h2 className="mb-3 text-2xl font-bold text-white">6. Spotifyとの関係</h2>
             <p>
               本アプリはSpotify Web APIを利用していますが、Spotify公式サービスではありません。
-              また、SpotifyおよびSpotify Blendとは無関係です。
+              Spotifyによる承認、提携、保証を意味するものではありません。
             </p>
             <p className="mt-3">
-              Spotifyアカウントとの連携解除は、Spotifyアカウント側のアプリ連携管理画面から行うことができます。
+              Spotifyアカウントとの連携解除は、Spotifyアカウント内のアプリ連携管理画面から行えます。
             </p>
           </section>
 
           <section>
             <h2 className="mb-3 text-2xl font-bold text-white">7. 注意事項</h2>
             <p>
-              本アプリは個人開発の試験運用段階です。
-              Spotify API、Supabase、Vercelなど外部サービスの仕様変更や障害により、
-              本アプリの機能が変更、停止、または利用できなくなる場合があります。
+              本アプリは個人開発の試験運用段階です。Spotify API、Supabase、Vercelなど
+              外部サービスの仕様変更や障害により、機能が変更、停止、または利用できなくなる場合があります。
             </p>
           </section>
 
@@ -113,9 +110,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="mb-3 text-2xl font-bold text-white">9. お問い合わせ</h2>
-            <p>
-              お問い合わせ先は、公開用の連絡手段を準備後に記載します。
-            </p>
+            <p>お問い合わせ先は、公開用の連絡手段を準備後に記載します。</p>
           </section>
 
           <section>
@@ -124,9 +119,9 @@ export default function PrivacyPage() {
         </div>
 
         <div className="mt-10">
-          <a href="/" className="text-green-400 underline">
+          <Link href="/" className="text-green-400 underline">
             トップに戻る
-          </a>
+          </Link>
         </div>
       </article>
     </main>

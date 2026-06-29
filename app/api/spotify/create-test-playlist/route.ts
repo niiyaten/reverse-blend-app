@@ -56,7 +56,7 @@ export async function POST() {
 
   const profile = (await profileResponse.json()) as SpotifyProfile;
 
-  // 自分がよく聴いている曲を取得する
+  // テスト用に、自分がよく聴いている曲をSpotifyから取得する
   const topTracksResponse = await fetch(
     "https://api.spotify.com/v1/me/top/tracks?limit=10&time_range=medium_term",
     {
@@ -85,7 +85,7 @@ export async function POST() {
     );
   }
 
-  // Spotify上に非公開プレイリストを作成する
+  // Spotify上に非公開のテストプレイリストを作成する
   const playlistResponse = await fetch(
     `https://api.spotify.com/v1/users/${profile.id}/playlists`,
     {
@@ -95,9 +95,9 @@ export async function POST() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: "逆Blend テスト",
+        name: "Crossfade Mix Test",
         description:
-          "逆Blendアプリの開発テスト用プレイリストです。自分のTop Tracksから作成しています。",
+          "Crossfade Mixの開発テスト用プレイリストです。自分のTop Tracksから作成しています。",
         public: false,
       }),
     }
@@ -117,7 +117,7 @@ export async function POST() {
 
   const playlist = (await playlistResponse.json()) as SpotifyPlaylistResponse;
 
-  // 作成したプレイリストに曲を追加する
+  // 作成したプレイリストへ曲を追加する
   const addTracksResponse = await fetch(
     `https://api.spotify.com/v1/playlists/${playlist.id}/tracks`,
     {

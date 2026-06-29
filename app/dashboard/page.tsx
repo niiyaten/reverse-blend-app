@@ -108,7 +108,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
       <section className="mx-auto max-w-3xl">
-        <p className="mb-4 text-sm text-zinc-400">Reverse Blend MVP</p>
+        <p className="mb-4 text-sm text-zinc-400">Crossfade Mix MVP</p>
 
         <h1 className="mb-8 text-4xl font-bold">Spotifyデータ確認</h1>
 

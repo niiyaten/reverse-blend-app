@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 
 type RoomUser = {
   id: string;
@@ -44,13 +45,19 @@ export default function RoomPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
 
-  // 逆Blend作成後に、Webアプリ側でスコア確認するためのstate
+  // 作成後の選曲理由をWebアプリ側で確認するために、APIの結果を画面に保持する
   const [createdTracks, setCreatedTracks] = useState<CreatedTrack[]>([]);
   const [createdPlaylistUrl, setCreatedPlaylistUrl] = useState("");
   const [createdPlaylistName, setCreatedPlaylistName] = useState("");
 
   useEffect(() => {
-    setInviteUrl(window.location.href);
+    const timerId = window.setTimeout(() => {
+      setInviteUrl(window.location.href);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
   }, []);
 
   useEffect(() => {
@@ -85,12 +92,12 @@ export default function RoomPage() {
     setCopied(true);
   }
 
-  async function createReversePlaylist() {
+  async function createCrossfadePlaylist() {
     try {
       setCreatingPlaylist(true);
       setErrorMessage("");
 
-      // 前回作成結果が残っていると紛らわしいので、作成前に一度クリアする
+      // 前回の作成結果が残っていると紛らわしいので、作成前に一度クリアする
       setCreatedTracks([]);
       setCreatedPlaylistUrl("");
       setCreatedPlaylistName("");
@@ -105,10 +112,11 @@ export default function RoomPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error ?? "逆Blendプレイリストの作成に失敗しました。");
+        throw new Error(
+          data.error ?? "Crossfade Mixプレイリストの作成に失敗しました。"
+        );
       }
 
-      // APIから返ってきたデバッグ用スコアを画面側に保存する
       setCreatedTracks(data.tracks ?? []);
       setCreatedPlaylistUrl(data.playlist?.spotifyUrl ?? "");
       setCreatedPlaylistName(data.playlist?.name ?? "");
@@ -135,22 +143,18 @@ export default function RoomPage() {
     return `${room?.guest?.display_name ?? "ゲスト"}由来`;
   }
 
-    function getHostSimilarity(track: CreatedTrack) {
-    return track.source === "host"
-      ? track.ownSimilarity
-      : track.otherSimilarity;
+  function getHostSimilarity(track: CreatedTrack) {
+    return track.source === "host" ? track.ownSimilarity : track.otherSimilarity;
   }
 
   function getGuestSimilarity(track: CreatedTrack) {
-    return track.source === "guest"
-      ? track.ownSimilarity
-      : track.otherSimilarity;
+    return track.source === "guest" ? track.ownSimilarity : track.otherSimilarity;
   }
 
   return (
     <main className="min-h-screen bg-zinc-950 px-6 py-12 text-white">
       <section className="mx-auto max-w-3xl">
-        <p className="mb-4 text-sm text-zinc-400">Reverse Blend MVP</p>
+        <p className="mb-4 text-sm text-zinc-400">Crossfade Mix MVP</p>
 
         <h1 className="mb-6 text-4xl font-bold">招待ルーム</h1>
 
@@ -218,17 +222,17 @@ export default function RoomPage() {
           {room?.guest ? (
             <div className="space-y-4">
               <p className="text-zinc-300">
-                2人が揃いました。この2人のTop Tracksを使って逆Blendプレイリストを作成できます。
+                2人が揃いました。2人の音楽傾向を使って、共通点が少なそうな曲を集めたCrossfade Mixプレイリストを作成できます。
               </p>
 
               <button
-                onClick={createReversePlaylist}
+                onClick={createCrossfadePlaylist}
                 disabled={creatingPlaylist}
                 className="rounded-full bg-green-500 px-6 py-3 font-bold text-black transition hover:bg-green-400 disabled:cursor-not-allowed disabled:bg-zinc-600 disabled:text-zinc-300"
               >
                 {creatingPlaylist
-                  ? "逆Blendを作成中..."
-                  : "逆Blendプレイリストを作成"}
+                  ? "Crossfade Mixを作成中..."
+                  : "Crossfade Mixプレイリストを作成"}
               </button>
             </div>
           ) : (
@@ -262,7 +266,7 @@ export default function RoomPage() {
             <div className="mb-5 rounded-xl bg-zinc-800 p-4 text-sm text-zinc-300">
               <p className="mb-1">
                 <span className="font-bold">Score：</span>
-                逆Blendスコア。高いほど採用されやすい曲です。
+                高いほどCrossfade Mixの選曲意図に合いやすい曲です。
               </p>
               <p className="mb-1">
                 <span className="font-bold">
@@ -272,7 +276,7 @@ export default function RoomPage() {
                 それぞれの好みにどれくらい近いかを表します。
               </p>
               <p>
-                逆Blendでは、由来側ユーザーの値が高く、相手側ユーザーの値が低い曲ほど狙いに近いです。
+                由来側ユーザーの値が高く、相手側ユーザーの値が低い曲ほど、2人の違いが出やすい候補です。
               </p>
             </div>
 
@@ -311,14 +315,18 @@ export default function RoomPage() {
                       <p className="text-xs text-zinc-500">
                         {room?.host?.display_name ?? "ホスト"}との近さ
                       </p>
-                      <p className="font-mono">{formatNumber(getHostSimilarity(track))}</p>
+                      <p className="font-mono">
+                        {formatNumber(getHostSimilarity(track))}
+                      </p>
                     </div>
 
                     <div className="rounded-lg bg-zinc-900 p-3">
                       <p className="text-xs text-zinc-500">
                         {room?.guest?.display_name ?? "ゲスト"}との近さ
                       </p>
-                      <p className="font-mono">{formatNumber(getGuestSimilarity(track))}</p>
+                      <p className="font-mono">
+                        {formatNumber(getGuestSimilarity(track))}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -328,9 +336,9 @@ export default function RoomPage() {
         )}
 
         <div className="mt-8">
-          <a href="/dashboard" className="text-green-400 underline">
+          <Link href="/dashboard" className="text-green-400 underline">
             ダッシュボードに戻る
-          </a>
+          </Link>
         </div>
       </section>
     </main>

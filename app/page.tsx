@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -7,7 +9,7 @@ export default function Home() {
         </p>
 
         <h1 className="mb-6 text-5xl font-bold tracking-tight">
-          逆Blendで作る、2人の共通点が少ないプレイリスト
+          Crossfade Mix
         </h1>
 
         <p className="mb-8 max-w-xl text-lg leading-8 text-zinc-300">
@@ -17,12 +19,12 @@ export default function Home() {
 
         <div className="mb-8 rounded-2xl bg-zinc-900 p-5 text-left text-sm leading-7 text-zinc-300">
           <p>
-            このアプリはSpotify公式サービスではありません。
-            SpotifyおよびSpotify Blendとは無関係の個人開発アプリです。
+            Crossfade MixはSpotify公式サービスではありません。
+            Spotifyとは無関係の個人開発アプリです。
           </p>
           <p className="mt-2">
             SpotifyのTop Tracks、Top Artists、Recently Playedなどを利用して、
-            プレイリストを作成します。
+            2人の音楽傾向の違いをもとにプレイリストを作成します。
           </p>
           <p className="mt-2">
             利用前に、プライバシーポリシーと利用規約を確認してください。
@@ -37,12 +39,12 @@ export default function Home() {
         </a>
 
         <div className="mt-8 flex flex-wrap justify-center gap-4 text-sm">
-          <a href="/privacy" className="text-green-400 underline">
+          <Link href="/privacy" className="text-green-400 underline">
             プライバシーポリシー
-          </a>
-          <a href="/terms" className="text-green-400 underline">
+          </Link>
+          <Link href="/terms" className="text-green-400 underline">
             利用規約
-          </a>
+          </Link>
         </div>
 
         <p className="mt-8 text-sm text-zinc-500">

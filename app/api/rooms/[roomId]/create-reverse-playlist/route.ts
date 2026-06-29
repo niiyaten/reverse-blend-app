@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { createErrorBody } from "../../../../lib/api-error";
 import { supabaseServer } from "../../../../lib/supabase-server";
 
@@ -284,7 +284,6 @@ function scoreTracks(params: {
   const {
     ownTracks,
     otherTracks,
-    ownTopArtists,
     otherTopArtists,
     ownArtistDetailMap,
     ownPreferenceVector,
@@ -326,7 +325,7 @@ function scoreTracks(params: {
       // Top Tracks上位曲を少し優先する
       score += rankScore * 25;
 
-      // 同じ曲は逆Blend感が弱いので大きく減点する
+      // 同じ曲は2人の違いが出にくいので大きく減点する
       if (sameTrack) {
         score -= 120;
       } else {
@@ -448,7 +447,7 @@ function selectWithMmrAndDiversity(params: {
   return selected;
 }
 
-// 1人分の候補曲から、逆Blend向きの曲を選ぶ
+// 1人分の候補曲から、2人の違いが出やすい曲を選ぶ
 function selectFarTracks(params: {
   ownTracks: SpotifyTrack[];
   otherTracks: SpotifyTrack[];
@@ -637,7 +636,7 @@ export async function POST(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: `逆Blend - ${hostName} × ${guestName}`,
+          name: `Crossfade Mix - ${hostName} x ${guestName}`,
           description:
             "2人のSpotify傾向から、あえて共通点が少なそうな曲を集めたプレイリストです。奇数曲はホスト由来、偶数曲はゲスト由来です。",
           public: false,
@@ -679,7 +678,7 @@ export async function POST(
     });
 
     return NextResponse.json({
-      message: "Reverse Blend playlist created.",
+      message: "Crossfade Mix playlist created.",
       playlist: {
         id: playlist.id,
         name: playlist.name,
@@ -703,7 +702,7 @@ export async function POST(
     if (error instanceof Error) {
       return NextResponse.json(
         createErrorBody(
-          "リバースプレイリストの作成に失敗しました。",
+          "Crossfade Mixプレイリストの作成に失敗しました。",
           error.message
         ),
         { status: 500 }
