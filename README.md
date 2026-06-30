@@ -48,7 +48,7 @@ https://reverse-blend-app.vercel.app
 - 2人の音楽傾向をもとにした選曲スコア計算
 - ホスト由来曲とゲスト由来曲の交互配置
 - 同一アーティスト、同一アルバムへの偏り抑制
-- ホスト側Spotifyアカウントへの非公開プレイリスト作成
+- 作成操作をした参加者のSpotifyアカウントへの非公開プレイリスト作成
 - Webアプリ上でのスコア表示
 
 ## コンセプト
@@ -63,7 +63,7 @@ Crossfade Mixでは、以下のような曲を優先します。
 
 ## プレイリスト仕様
 
-作成されるプレイリストは、ルームを作成したホスト側のSpotifyアカウントに非公開プレイリストとして作成されます。
+作成されるプレイリストは、作成操作をした参加者本人のSpotifyアカウントに非公開プレイリストとして作成されます。ルームの参加者ではない第三者は作成できません。
 
 初期仕様では最大30曲です。
 
@@ -182,6 +182,8 @@ SPOTIFY_CLIENT_ID=
 SPOTIFY_CLIENT_SECRET=
 SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/api/auth/callback/spotify
 APP_URL=http://127.0.0.1:3000
+APP_SESSION_SECRET=
+APP_TOKEN_ENCRYPTION_SECRET=
 
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
@@ -191,6 +193,8 @@ SUPABASE_SERVICE_ROLE_KEY=
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` は強い権限を持つため、絶対に `NEXT_PUBLIC_` を付けないでください。
+
+`APP_SESSION_SECRET` はアプリ内セッションCookieの署名に使います。`APP_TOKEN_ENCRYPTION_SECRET` はSupabaseに保存するSpotify tokenの暗号化に使います。本番では推測しにくい長いランダム文字列を設定してください。
 
 `.env.local` や `.env.Vercel` はGitHubへpushしないでください。
 

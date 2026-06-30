@@ -52,8 +52,8 @@ export default function TermsPage() {
           <section>
             <h2 className="mb-3 text-2xl font-bold text-white">4. 作成されるプレイリスト</h2>
             <p>
-              本アプリにより作成されるプレイリストは、原則としてホストユーザーのSpotifyアカウント上に
-              非公開プレイリストとして作成されます。
+              本アプリにより作成されるプレイリストは、作成操作をした参加者本人のSpotifyアカウント上に
+              非公開プレイリストとして作成されます。ルームの参加者ではない第三者は作成できません。
             </p>
             <p className="mt-3">
               ただし、Spotify側の仕様変更、API制限、通信エラー、ユーザーのアカウント状態などにより、

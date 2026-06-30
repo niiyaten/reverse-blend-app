@@ -1,11 +1,17 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createErrorBody } from "../../../lib/api-error";
+import {
+  SESSION_COOKIE_NAME,
+  verifyAppSessionCookieValue,
+} from "../../../lib/session";
 import { supabaseServer } from "../../../lib/supabase-server";
 
 export async function POST() {
   const cookieStore = await cookies();
-  const appUserId = cookieStore.get("app_user_id")?.value;
+  const appUserId = verifyAppSessionCookieValue(
+    cookieStore.get(SESSION_COOKIE_NAME)?.value
+  );
   const appUrl = process.env.APP_URL;
 
   if (!appUserId) {
@@ -22,7 +28,7 @@ export async function POST() {
     );
   }
 
-  // roomsテーブルに招待ルームを作成する
+  // 署名検証済みのログインユーザーをホストとして招待ルームを作成する
   const { data: room, error } = await supabaseServer
     .from("rooms")
     .insert({

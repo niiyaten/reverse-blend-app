@@ -1,6 +1,12 @@
-﻿import { NextResponse } from "next/server";
+﻿import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { createErrorBody } from "../../../../lib/api-error";
+import {
+  SESSION_COOKIE_NAME,
+  verifyAppSessionCookieValue,
+} from "../../../../lib/session";
 import { supabaseServer } from "../../../../lib/supabase-server";
+import { decryptToken } from "../../../../lib/token-crypto";
 
 type AppUser = {
   id: string;
@@ -500,6 +506,17 @@ export async function POST(
   { params }: { params: Promise<{ roomId: string }> }
 ) {
   const { roomId } = await params;
+  const cookieStore = await cookies();
+  const appUserId = verifyAppSessionCookieValue(
+    cookieStore.get(SESSION_COOKIE_NAME)?.value
+  );
+
+  if (!appUserId) {
+    return NextResponse.json(
+      { error: "ログインユーザー情報がありません。もう一度Spotifyログインしてください。" },
+      { status: 401 }
+    );
+  }
 
   const { data: room, error: roomError } = await supabaseServer
     .from("rooms")
@@ -520,6 +537,16 @@ export async function POST(
         error: "2人が揃っていません。",
       },
       { status: 400 }
+    );
+  }
+
+  const isHost = room.host_user_id === appUserId;
+  const isGuest = room.guest_user_id === appUserId;
+
+  if (!isHost && !isGuest) {
+    return NextResponse.json(
+      { error: "プレイリストを作成できるのは、このルームの参加者だけです。" },
+      { status: 403 }
     );
   }
 
@@ -555,90 +582,96 @@ export async function POST(
   }
 
   try {
-    const [hostTracks, guestTracks, hostTopArtists, guestTopArtists] =
+    const hostAccessToken = decryptToken(hostUser.access_token);
+    const guestAccessToken = decryptToken(guestUser.access_token);
+    const creatorUser = isHost ? hostUser : guestUser;
+    const otherUser = isHost ? guestUser : hostUser;
+    const creatorAccessToken = isHost ? hostAccessToken : guestAccessToken;
+    const otherAccessToken = isHost ? guestAccessToken : hostAccessToken;
+    const creatorSource = isHost ? "host" : "guest";
+    const otherSource = isHost ? "guest" : "host";
+
+    const [creatorTracks, otherTracks, creatorTopArtists, otherTopArtists] =
       await Promise.all([
-        getTopTracksOrRecentTracks(hostUser.access_token),
-        getTopTracksOrRecentTracks(guestUser.access_token),
-        getTopArtists(hostUser.access_token),
-        getTopArtists(guestUser.access_token),
+        getTopTracksOrRecentTracks(creatorAccessToken),
+        getTopTracksOrRecentTracks(otherAccessToken),
+        getTopArtists(creatorAccessToken),
+        getTopArtists(otherAccessToken),
       ]);
 
-    if (hostTracks.length === 0 || guestTracks.length === 0) {
+    if (creatorTracks.length === 0 || otherTracks.length === 0) {
       return NextResponse.json(
         {
           error:
             "どちらかのSpotifyアカウントでTop Tracks / Recently Playedの両方が取得できませんでした。",
-          hostTrackCount: hostTracks.length,
-          guestTrackCount: guestTracks.length,
+          creatorTrackCount: creatorTracks.length,
+          otherTrackCount: otherTracks.length,
         },
         { status: 400 }
       );
     }
 
-    const [hostArtistDetailMap, guestArtistDetailMap] = await Promise.all([
-      getArtistDetails(hostUser.access_token, getArtistIdsFromTracks(hostTracks)),
-      getArtistDetails(
-        guestUser.access_token,
-        getArtistIdsFromTracks(guestTracks)
-      ),
+    const [creatorArtistDetailMap, otherArtistDetailMap] = await Promise.all([
+      getArtistDetails(creatorAccessToken, getArtistIdsFromTracks(creatorTracks)),
+      getArtistDetails(otherAccessToken, getArtistIdsFromTracks(otherTracks)),
     ]);
 
-    const hostPreferenceVector = buildUserPreferenceVector({
-      topArtists: hostTopArtists,
-      tracks: hostTracks,
-      trackArtistDetailMap: hostArtistDetailMap,
+    const creatorPreferenceVector = buildUserPreferenceVector({
+      topArtists: creatorTopArtists,
+      tracks: creatorTracks,
+      trackArtistDetailMap: creatorArtistDetailMap,
     });
 
-    const guestPreferenceVector = buildUserPreferenceVector({
-      topArtists: guestTopArtists,
-      tracks: guestTracks,
-      trackArtistDetailMap: guestArtistDetailMap,
+    const otherPreferenceVector = buildUserPreferenceVector({
+      topArtists: otherTopArtists,
+      tracks: otherTracks,
+      trackArtistDetailMap: otherArtistDetailMap,
     });
 
-    const selectedHostTracks = selectFarTracks({
-      ownTracks: hostTracks,
-      otherTracks: guestTracks,
-      ownTopArtists: hostTopArtists,
-      otherTopArtists: guestTopArtists,
-      ownArtistDetailMap: hostArtistDetailMap,
-      ownPreferenceVector: hostPreferenceVector,
-      otherPreferenceVector: guestPreferenceVector,
+    const selectedCreatorTracks = selectFarTracks({
+      ownTracks: creatorTracks,
+      otherTracks,
+      ownTopArtists: creatorTopArtists,
+      otherTopArtists,
+      ownArtistDetailMap: creatorArtistDetailMap,
+      ownPreferenceVector: creatorPreferenceVector,
+      otherPreferenceVector,
       limit: TRACKS_PER_USER,
     });
 
-    const selectedGuestTracks = selectFarTracks({
-      ownTracks: guestTracks,
-      otherTracks: hostTracks,
-      ownTopArtists: guestTopArtists,
-      otherTopArtists: hostTopArtists,
-      ownArtistDetailMap: guestArtistDetailMap,
-      ownPreferenceVector: guestPreferenceVector,
-      otherPreferenceVector: hostPreferenceVector,
+    const selectedOtherTracks = selectFarTracks({
+      ownTracks: otherTracks,
+      otherTracks: creatorTracks,
+      ownTopArtists: otherTopArtists,
+      otherTopArtists: creatorTopArtists,
+      ownArtistDetailMap: otherArtistDetailMap,
+      ownPreferenceVector: otherPreferenceVector,
+      otherPreferenceVector: creatorPreferenceVector,
       limit: TRACKS_PER_USER,
     });
 
     const playlistTracks = interleaveTracks(
-      selectedHostTracks,
-      selectedGuestTracks
+      selectedCreatorTracks,
+      selectedOtherTracks
     );
 
     const trackUris = playlistTracks.map((item) => item.track.uri);
 
-    const hostName = hostUser.display_name ?? "Host";
-    const guestName = guestUser.display_name ?? "Guest";
+    const creatorName = creatorUser.display_name ?? "Creator";
+    const otherName = otherUser.display_name ?? "Partner";
 
     const playlistResponse = await fetch(
       "https://api.spotify.com/v1/me/playlists",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${hostUser.access_token}`,
+          Authorization: `Bearer ${creatorAccessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: `Crossfade Mix - ${hostName} x ${guestName}`,
+          name: `Crossfade Mix - ${creatorName} x ${otherName}`,
           description:
-            "2人のSpotify傾向から、あえて共通点が少なそうな曲を集めたプレイリストです。奇数曲はホスト由来、偶数曲はゲスト由来です。",
+            "2人のSpotify傾向から、あえて共通点が少なそうな曲を集めたプレイリストです。奇数曲は作成者由来、偶数曲は相手由来です。",
           public: false,
         }),
       }
@@ -656,7 +689,7 @@ export async function POST(
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${hostUser.access_token}`,
+          Authorization: `Bearer ${creatorAccessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -674,7 +707,7 @@ export async function POST(
       room_id: room.id,
       spotify_playlist_id: playlist.id,
       spotify_playlist_url: playlist.external_urls.spotify,
-      created_by_user_id: hostUser.id,
+      created_by_user_id: creatorUser.id,
     });
 
     return NextResponse.json({
@@ -691,7 +724,7 @@ export async function POST(
         artists: item.track.artists.map((artist) => artist.name).join(", "),
         album: item.track.album?.name ?? null,
         uri: item.track.uri,
-        source: index % 2 === 0 ? "host" : "guest",
+        source: index % 2 === 0 ? creatorSource : otherSource,
         score: Number(item.score.toFixed(3)),
         ownSimilarity: Number(item.ownSimilarity.toFixed(3)),
         otherSimilarity: Number(item.otherSimilarity.toFixed(3)),
@@ -717,3 +750,4 @@ export async function POST(
     );
   }
 }
+

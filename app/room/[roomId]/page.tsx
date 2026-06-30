@@ -7,7 +7,6 @@ import Link from "next/link";
 type RoomUser = {
   id: string;
   display_name: string | null;
-  spotify_user_id: string;
 };
 
 type Room = {
@@ -222,7 +221,7 @@ export default function RoomPage() {
           {room?.guest ? (
             <div className="space-y-4">
               <p className="text-zinc-300">
-                2人が揃いました。2人の音楽傾向を使って、共通点が少なそうな曲を集めたCrossfade Mixプレイリストを作成できます。
+                2人が揃いました。参加者はそれぞれ、自分のSpotifyアカウントにCrossfade Mixプレイリストを作成できます。
               </p>
 
               <button
@@ -232,7 +231,7 @@ export default function RoomPage() {
               >
                 {creatingPlaylist
                   ? "Crossfade Mixを作成中..."
-                  : "Crossfade Mixプレイリストを作成"}
+                  : "自分のSpotifyにCrossfade Mixを作成"}
               </button>
             </div>
           ) : (

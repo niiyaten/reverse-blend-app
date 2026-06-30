@@ -3,7 +3,7 @@ import { createErrorBody } from "../../../lib/api-error";
 import { supabaseServer } from "../../../lib/supabase-server";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
   const { roomId } = await params;
@@ -17,13 +17,11 @@ export async function GET(
       created_at,
       host:host_user_id (
         id,
-        display_name,
-        spotify_user_id
+        display_name
       ),
       guest:guest_user_id (
         id,
-        display_name,
-        spotify_user_id
+        display_name
       )
     `
     )

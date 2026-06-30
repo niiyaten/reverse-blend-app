@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createErrorBody } from "../../../../lib/api-error";
+import {
+  createAppSessionCookieValue,
+  SESSION_COOKIE_NAME,
+} from "../../../../lib/session";
 import { supabaseServer } from "../../../../lib/supabase-server";
+import { encryptToken } from "../../../../lib/token-crypto";
 
 type SpotifyProfile = {
   id: string;
@@ -102,8 +107,8 @@ export async function GET(request: NextRequest) {
       {
         spotify_user_id: profile.id,
         display_name: profile.display_name,
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
+        access_token: encryptToken(tokenData.access_token),
+        refresh_token: encryptToken(tokenData.refresh_token),
         token_expires_at: tokenExpiresAt,
         updated_at: new Date().toISOString(),
       },
@@ -168,21 +173,16 @@ export async function GET(request: NextRequest) {
   const redirectUrl = roomId ? `${appUrl}/room/${roomId}` : `${appUrl}/dashboard`;
   const response = NextResponse.redirect(redirectUrl);
 
-  response.cookies.set("spotify_access_token", tokenData.access_token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: tokenData.expires_in,
-  });
-
-  response.cookies.set("app_user_id", savedUser.id, {
+  response.cookies.set(SESSION_COOKIE_NAME, createAppSessionCookieValue(savedUser.id), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
+
+  response.cookies.delete("spotify_access_token");
+  response.cookies.delete("app_user_id");
 
   return response;
 }
