@@ -69,7 +69,7 @@ export default function ContactPage() {
 
         <p className="mb-8 leading-7 text-zinc-300">
           Crossfade Mixに関する問い合わせ、保存データの削除依頼、不具合報告は
-          このフォームから送信してください。返信が必要な場合のみ、連絡先を入力してください。
+          このフォームから送信してください。返信が必要な場合のみ、メールアドレスを入力してください。
         </p>
 
         {successMessage && (
@@ -105,10 +105,11 @@ export default function ContactPage() {
 
           <div>
             <label className="mb-2 block font-bold" htmlFor="contact">
-              返信先 任意
+              返信先メールアドレス 任意
             </label>
             <input
               id="contact"
+              type="email"
               value={contact}
               onChange={(event) => setContact(event.target.value)}
               maxLength={200}
