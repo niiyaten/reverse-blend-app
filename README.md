@@ -37,13 +37,14 @@ https://reverse-blend-app.vercel.app
 
 - プライバシーポリシー: https://reverse-blend-app.vercel.app/privacy
 - 利用規約: https://reverse-blend-app.vercel.app/terms
+- 問い合わせフォーム: https://reverse-blend-app.vercel.app/contact
 
 ## 問い合わせ・削除依頼
 
 問い合わせや保存データの削除依頼は、以下から連絡してください。
 
 ```text
-https://github.com/niiyaten/reverse-blend-app/issues
+https://reverse-blend-app.vercel.app/contact
 ```
 
 ## 主な機能
@@ -58,6 +59,7 @@ https://github.com/niiyaten/reverse-blend-app/issues
 - 同一アーティスト、同一アルバムへの偏り抑制
 - 作成操作をした参加者のSpotifyアカウントへの非公開プレイリスト作成
 - Webアプリ上でのスコア表示
+- 問い合わせ・削除依頼フォーム
 
 ## コンセプト
 
@@ -107,8 +109,10 @@ Crossfade Mixでは、以下のような曲を優先します。
 app/
   api/
     auth/
+    contact/
     rooms/
     spotify/
+  contact/
   dashboard/
   lib/
   privacy/
@@ -183,6 +187,14 @@ POST /api/rooms/[roomId]/create-reverse-playlist
 
 指定したルームのホスト・ゲスト情報をもとに、Crossfade Mixプレイリストを作成します。
 作成できるのは対象ルームのホストまたはゲストだけです。作成されたプレイリストは、作成操作をした参加者本人のSpotifyアカウントに保存されます。
+
+### 問い合わせ送信
+
+```text
+POST /api/contact
+```
+
+問い合わせ、保存データの削除依頼、不具合報告をSupabaseの `contact_requests` テーブルに保存します。テーブル作成SQLは `docs/contact_requests.sql` にあります。
 
 ## 環境変数
 

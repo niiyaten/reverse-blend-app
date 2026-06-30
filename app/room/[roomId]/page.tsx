@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "../../lib/supabase";
 
 type RoomUser = {
   id: string;
@@ -48,6 +49,27 @@ export default function RoomPage() {
   const [createdPlaylistUrl, setCreatedPlaylistUrl] = useState("");
   const [createdPlaylistName, setCreatedPlaylistName] = useState("");
 
+  const loadRoom = useCallback(async () => {
+    try {
+      setErrorMessage("");
+
+      const response = await fetch(`/api/rooms/${roomId}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "ルーム情報の取得に失敗しました。");
+      }
+
+      setRoom(data.room);
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("不明なエラーが発生しました。");
+      }
+    }
+  }, [roomId]);
+
   useEffect(() => {
     const timerId = window.setTimeout(() => {
       setInviteUrl(window.location.href);
@@ -59,29 +81,37 @@ export default function RoomPage() {
   }, []);
 
   useEffect(() => {
-    async function loadRoom() {
-      try {
-        setErrorMessage("");
+    const timerId = window.setTimeout(() => {
+      void loadRoom();
+    }, 0);
 
-        const response = await fetch(`/api/rooms/${roomId}`);
-        const data = await response.json();
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [loadRoom]);
 
-        if (!response.ok) {
-          throw new Error(data.error ?? "ルーム情報の取得に失敗しました。");
+  useEffect(() => {
+    // ゲスト参加などでroomsテーブルが更新されたら、画面の参加状況を取り直す
+    const channel = supabase
+      .channel(`room-updates:${roomId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "rooms",
+          filter: `id=eq.${roomId}`,
+        },
+        () => {
+          loadRoom();
         }
+      )
+      .subscribe();
 
-        setRoom(data.room);
-      } catch (error) {
-        if (error instanceof Error) {
-          setErrorMessage(error.message);
-        } else {
-          setErrorMessage("不明なエラーが発生しました。");
-        }
-      }
-    }
-
-    loadRoom();
-  }, [roomId]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadRoom, roomId]);
 
   async function copyInviteUrl() {
     if (!inviteUrl) return;

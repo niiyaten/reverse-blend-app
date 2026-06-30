@@ -45,6 +45,9 @@ export default function Home() {
           <Link href="/terms" className="text-green-400 underline">
             利用規約
           </Link>
+          <Link href="/contact" className="text-green-400 underline">
+            問い合わせ
+          </Link>
         </div>
 
         <p className="mt-8 text-sm text-zinc-500">
