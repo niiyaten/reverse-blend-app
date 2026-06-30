@@ -2,7 +2,7 @@
 
 Crossfade Mix is a web app that creates a private Spotify playlist from two users' listening profiles, focusing on tracks that are less similar between them.
 
-本アプリはSpotify公式サービスではありません。Spotifyによる承認、提携、保証を意味するものではない個人開発アプリです。
+本アプリはSpotify公式サービスではありません。Spotifyによる承認、提携、保証を意味するものではない個人開発アプリです。また、SpotifyアプリのCrossfade機能とも無関係です。
 
 ## Production URL
 
@@ -38,6 +38,14 @@ https://reverse-blend-app.vercel.app
 - プライバシーポリシー: https://reverse-blend-app.vercel.app/privacy
 - 利用規約: https://reverse-blend-app.vercel.app/terms
 
+## 問い合わせ・削除依頼
+
+問い合わせや保存データの削除依頼は、以下から連絡してください。
+
+```text
+https://github.com/niiyaten/reverse-blend-app/issues
+```
+
 ## 主な機能
 
 - Spotify OAuthログイン
@@ -64,6 +72,8 @@ Crossfade Mixでは、以下のような曲を優先します。
 ## プレイリスト仕様
 
 作成されるプレイリストは、作成操作をした参加者本人のSpotifyアカウントに非公開プレイリストとして作成されます。ルームの参加者ではない第三者は作成できません。
+
+同じルームで同じ参加者がすでにプレイリストを作成済みの場合は、重複作成せず既存プレイリストURLを返します。また、同じユーザー・同じルームで短時間に作成操作が続く場合は、簡易rate limitにより一時的に拒否します。
 
 初期仕様では最大30曲です。
 
@@ -172,6 +182,7 @@ POST /api/rooms/[roomId]/create-reverse-playlist
 ```
 
 指定したルームのホスト・ゲスト情報をもとに、Crossfade Mixプレイリストを作成します。
+作成できるのは対象ルームのホストまたはゲストだけです。作成されたプレイリストは、作成操作をした参加者本人のSpotifyアカウントに保存されます。
 
 ## 環境変数
 

@@ -1,6 +1,7 @@
 ﻿import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createErrorBody } from "../../../../lib/api-error";
+import { checkRateLimit } from "../../../../lib/rate-limit";
 import {
   SESSION_COOKIE_NAME,
   verifyAppSessionCookieValue,
@@ -32,6 +33,9 @@ type SpotifyTrack = {
   uri: string;
   artists: SpotifyArtist[];
   album?: SpotifyAlbum | null;
+  external_urls?: {
+    spotify?: string;
+  };
 };
 
 type SpotifyTopTracksResponse = {
@@ -550,6 +554,54 @@ export async function POST(
     );
   }
 
+  const rateLimit = checkRateLimit({
+    key: `create-playlist:${appUserId}:${roomId}`,
+    limit: 3,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: `短時間に作成操作が続いています。${rateLimit.retryAfterSeconds}秒後にもう一度試してください。`,
+      },
+      { status: 429 }
+    );
+  }
+
+  const { data: existingPlaylist, error: existingPlaylistError } =
+    await supabaseServer
+      .from("playlists")
+      .select("spotify_playlist_url")
+      .eq("room_id", room.id)
+      .eq("created_by_user_id", appUserId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+  if (existingPlaylistError) {
+    return NextResponse.json(
+      createErrorBody(
+        "作成済みプレイリストの確認に失敗しました。",
+        existingPlaylistError.message
+      ),
+      { status: 500 }
+    );
+  }
+
+  if (existingPlaylist?.spotify_playlist_url) {
+    return NextResponse.json(
+      {
+        error:
+          "このルームでは、あなたのSpotifyアカウント向けのプレイリストはすでに作成済みです。",
+        playlist: {
+          spotifyUrl: existingPlaylist.spotify_playlist_url,
+        },
+      },
+      { status: 409 }
+    );
+  }
+
   const { data: users, error: usersError } = await supabaseServer
     .from("users")
     .select("id, spotify_user_id, display_name, access_token")
@@ -724,6 +776,7 @@ export async function POST(
         artists: item.track.artists.map((artist) => artist.name).join(", "),
         album: item.track.album?.name ?? null,
         uri: item.track.uri,
+        spotifyUrl: item.track.external_urls?.spotify ?? null,
         source: index % 2 === 0 ? creatorSource : otherSource,
         score: Number(item.score.toFixed(3)),
         ownSimilarity: Number(item.ownSimilarity.toFixed(3)),
@@ -733,6 +786,16 @@ export async function POST(
     });
   } catch (error) {
     if (error instanceof Error) {
+      if (error.message.includes("Stored Spotify token")) {
+        return NextResponse.json(
+          {
+            error:
+              "保存済みのSpotifyログイン情報を読み込めませんでした。もう一度Spotifyログインしてください。",
+          },
+          { status: 401 }
+        );
+      }
+
       return NextResponse.json(
         createErrorBody(
           "Crossfade Mixプレイリストの作成に失敗しました。",
@@ -750,4 +813,5 @@ export async function POST(
     );
   }
 }
+
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CONTACT_LABEL, CONTACT_URL } from "../lib/contact";
 
 export default function TermsPage() {
   return (
@@ -15,7 +16,8 @@ export default function TermsPage() {
               本アプリを利用するユーザーは、本利用規約に同意したものとみなします。
             </p>
             <p className="mt-3">
-              本アプリはSpotify公式サービスではなく、Spotifyとは無関係の個人開発アプリです。
+              本アプリはSpotify公式サービスではなく、Spotifyによる承認、提携、保証を意味しません。
+              また、SpotifyアプリのCrossfade機能とも無関係です。
             </p>
           </section>
 
@@ -124,7 +126,13 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-3 text-2xl font-bold text-white">11. お問い合わせ</h2>
-            <p>お問い合わせ先は、公開用の連絡手段を準備後に記載します。</p>
+            <p>
+              お問い合わせは{" "}
+              <a href={CONTACT_URL} className="text-green-400 underline">
+                {CONTACT_LABEL}
+              </a>
+              から連絡してください。
+            </p>
           </section>
 
           <section>

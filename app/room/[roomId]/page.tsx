@@ -23,6 +23,7 @@ type CreatedTrack = {
   artists: string;
   album: string | null;
   uri: string;
+  spotifyUrl: string | null;
   source: "host" | "guest";
   score: number;
   ownSimilarity: number;
@@ -43,8 +44,6 @@ export default function RoomPage() {
   const [room, setRoom] = useState<Room | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
-
-  // 作成後の選曲理由をWebアプリ側で確認するために、APIの結果を画面に保持する
   const [createdTracks, setCreatedTracks] = useState<CreatedTrack[]>([]);
   const [createdPlaylistUrl, setCreatedPlaylistUrl] = useState("");
   const [createdPlaylistName, setCreatedPlaylistName] = useState("");
@@ -95,8 +94,6 @@ export default function RoomPage() {
     try {
       setCreatingPlaylist(true);
       setErrorMessage("");
-
-      // 前回の作成結果が残っていると紛らわしいので、作成前に一度クリアする
       setCreatedTracks([]);
       setCreatedPlaylistUrl("");
       setCreatedPlaylistName("");
@@ -111,6 +108,7 @@ export default function RoomPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        setCreatedPlaylistUrl(data.playlist?.spotifyUrl ?? "");
         throw new Error(
           data.error ?? "Crossfade Mixプレイリストの作成に失敗しました。"
         );
@@ -159,7 +157,17 @@ export default function RoomPage() {
 
         {errorMessage && (
           <div className="mb-6 rounded-lg bg-red-950 p-4 text-red-200">
-            {errorMessage}
+            <p>{errorMessage}</p>
+            {createdPlaylistUrl && (
+              <a
+                href={createdPlaylistUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-block text-green-300 underline"
+              >
+                作成済みプレイリストをSpotifyで開く
+              </a>
+            )}
           </div>
         )}
 
@@ -296,6 +304,17 @@ export default function RoomPage() {
                         <p className="mt-1 text-xs text-zinc-500">
                           Album: {track.album}
                         </p>
+                      )}
+
+                      {track.spotifyUrl && (
+                        <a
+                          href={track.spotifyUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-block text-sm text-green-400 underline"
+                        >
+                          この曲をSpotifyで開く
+                        </a>
                       )}
                     </div>
 

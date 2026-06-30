@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CONTACT_LABEL, CONTACT_URL } from "../lib/contact";
 
 export default function PrivacyPage() {
   return (
@@ -15,7 +16,8 @@ export default function PrivacyPage() {
               ユーザー情報の取得、利用、保存、管理について説明するものです。
             </p>
             <p className="mt-3">
-              本アプリはSpotify公式サービスではなく、Spotifyとは無関係の個人開発アプリです。
+              本アプリはSpotify公式サービスではなく、Spotifyによる承認、提携、保証を意味しません。
+              また、SpotifyアプリのCrossfade機能とも無関係です。
             </p>
           </section>
 
@@ -54,7 +56,8 @@ export default function PrivacyPage() {
             <h2 className="mb-3 text-2xl font-bold text-white">3. 保存する情報</h2>
             <p>
               本アプリでは、ユーザー識別、ルーム管理、プレイリスト作成のために、
-              SpotifyユーザーID、表示名、token、ルーム情報、作成済みプレイリスト情報を保存します。
+              SpotifyユーザーID、表示名、暗号化したtoken、ルーム情報、
+              作成済みプレイリスト情報を保存します。
             </p>
             <p className="mt-3">
               保存先にはSupabaseを利用します。また、本アプリのホスティングにはVercelを利用します。
@@ -77,7 +80,11 @@ export default function PrivacyPage() {
               プレイリスト記録を削除します。
             </p>
             <p className="mt-3">
-              削除依頼の連絡先は、公開用の問い合わせ手段を準備後に本ページへ記載します。
+              削除依頼は{" "}
+              <a href={CONTACT_URL} className="text-green-400 underline">
+                {CONTACT_LABEL}
+              </a>
+              から連絡してください。
             </p>
           </section>
 
@@ -86,6 +93,7 @@ export default function PrivacyPage() {
             <p>
               本アプリはSpotify Web APIを利用していますが、Spotify公式サービスではありません。
               Spotifyによる承認、提携、保証を意味するものではありません。
+              SpotifyアプリのCrossfade機能とも無関係です。
             </p>
             <p className="mt-3">
               Spotifyアカウントとの連携解除は、Spotifyアカウント内のアプリ連携管理画面から行えます。
@@ -110,7 +118,13 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="mb-3 text-2xl font-bold text-white">9. お問い合わせ</h2>
-            <p>お問い合わせ先は、公開用の連絡手段を準備後に記載します。</p>
+            <p>
+              お問い合わせは{" "}
+              <a href={CONTACT_URL} className="text-green-400 underline">
+                {CONTACT_LABEL}
+              </a>
+              から連絡してください。
+            </p>
           </section>
 
           <section>
