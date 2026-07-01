@@ -19,6 +19,11 @@ export default function TermsPage() {
               本アプリはSpotify公式サービスではなく、Spotifyによる承認、提携、保証を意味しません。
               また、SpotifyアプリのCrossfade機能とも無関係です。
             </p>
+            <p className="mt-3">
+              Crossfade Mixは、Spotifyの音声を再生、編集、ミックス、リミックス、
+              クロスフェード、重ね合わせるアプリではありません。Spotify Web APIを利用して、
+              2人の音楽傾向をもとに非公開プレイリストを作成するアプリです。
+            </p>
           </section>
 
           <section>

@@ -1,16 +1,27 @@
 # Crossfade Mix
 
+## Current Status
+
+Crossfade Mix is currently operated as a private development-mode project for limited testing.
+Due to Spotify Extended quota mode requirements, public access is not planned at this stage.
+
+This repository is public for portfolio and learning purposes.
+The hosted demo is only available to Spotify users allowlisted in the Spotify Developer Dashboard.
+This app is not a public Spotify application.
+
 Crossfade Mix is a web app that creates a private Spotify playlist from two users' listening profiles, focusing on tracks that are less similar between them.
 
 本アプリはSpotify公式サービスではありません。Spotifyによる承認、提携、保証を意味するものではない個人開発アプリです。また、SpotifyアプリのCrossfade機能とも無関係です。
 
-## Production URL
+## Hosted Demo
 
 https://reverse-blend-app.vercel.app
 
 ## 現在の公開範囲
 
-現在はSpotify Development Modeでのテスト運用中です。利用できるユーザーは、Spotify Developer DashboardのUsers Managementに登録されたテストユーザーに限られる場合があります。一般公開には、SpotifyのExtended quota mode申請が必要です。
+現在はSpotify Development Modeでのテスト運用中です。利用できるユーザーは、Spotify Developer DashboardのUsers Managementに登録されたテストユーザーに限られます。一般公開Spotifyアプリではありません。
+
+このリポジトリをpullして自分で動かす場合は、自分自身のSpotify Developer App、Supabase Project、Vercel Deployment、環境変数設定が必要です。
 
 ## 利用するSpotifyデータ
 
@@ -24,7 +35,7 @@ https://reverse-blend-app.vercel.app
 - Spotify APIのaccess token / refresh token
 - 作成したプレイリスト情報
 
-メールアドレスは取得・保存しません。
+Spotifyログインを通じてメールアドレスは取得・保存しません。問い合わせフォームでは、返信が必要な場合のみ任意でメールアドレスを入力できます。
 
 ## 使用しているSpotify scope
 
@@ -198,28 +209,60 @@ POST /api/contact
 
 ## 環境変数
 
-`.env.local` に以下を設定します。
+このリポジトリには、本物の環境変数やsecret keyは含めていません。
+
+ローカルで動かす場合は、`.env.example` を `.env.local` にコピーし、自分の値を入れてください。
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+必要な環境変数は以下です。
 
 ```env
+APP_URL=http://127.0.0.1:3000
+
 SPOTIFY_CLIENT_ID=
 SPOTIFY_CLIENT_SECRET=
 SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/api/auth/callback/spotify
-APP_URL=http://127.0.0.1:3000
-APP_SESSION_SECRET=
-APP_TOKEN_ENCRYPTION_SECRET=
 
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
+
+APP_SESSION_SECRET=
+APP_TOKEN_ENCRYPTION_SECRET=
+
+NEXT_PUBLIC_CONTACT_URL=
+NEXT_PUBLIC_CONTACT_LABEL=
 ```
+
+`APP_URL` は、招待URLやSpotify OAuth callback後の遷移先を作るために使います。ローカルでは `http://127.0.0.1:3000`、Vercelでは自分のデプロイURLを設定してください。
+
+`SPOTIFY_CLIENT_ID`、`SPOTIFY_CLIENT_SECRET`、`SPOTIFY_REDIRECT_URI` は、自分のSpotify Developer Appで発行・設定してください。
+
+`NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_ANON_KEY` はブラウザ側のSupabase Realtime購読に使います。
 
 `SUPABASE_SERVICE_ROLE_KEY` は強い権限を持つため、絶対に `NEXT_PUBLIC_` を付けないでください。
 
 `APP_SESSION_SECRET` はアプリ内セッションCookieの署名に使います。`APP_TOKEN_ENCRYPTION_SECRET` はSupabaseに保存するSpotify tokenの暗号化に使います。本番では推測しにくい長いランダム文字列を設定してください。
 
-`.env.local` や `.env.Vercel` はGitHubへpushしないでください。
+`NEXT_PUBLIC_CONTACT_URL` と `NEXT_PUBLIC_CONTACT_LABEL` は任意です。未設定の場合、問い合わせ先はアプリ内の `/contact` になります。
+
+`.env`、`.env.local`、`.env.Vercel` などsecretを含みうるファイルはGitHubへpushしないでください。共有するのは `.env.example` だけです。
+
+## 自分の環境で動かす手順
+
+1. このリポジトリをcloneします。
+2. `.env.example` を `.env.local` にコピーします。
+3. 自分のSpotify Developer Appを作成し、Client ID、Client Secret、Redirect URIを設定します。
+4. 自分のSupabase Projectを作成し、必要なテーブルを作成します。問い合わせテーブルのSQLは `docs/contact_requests.sql` にあります。
+5. Supabase Realtimeで `rooms` テーブルのUPDATE配信を有効にします。
+6. `npm install` を実行します。
+7. `npm run dev` を実行します。
+8. Vercelにデプロイする場合は、Vercel Project側にも同じ環境変数を設定します。
 
 ## ローカル開発
 
