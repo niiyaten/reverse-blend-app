@@ -1,5 +1,10 @@
 # Crossfade Mix
 
+## License
+
+No license is currently granted.  
+All rights reserved.
+
 ## Current Status
 
 Crossfade Mix is currently operated as a private development-mode project for limited testing.
